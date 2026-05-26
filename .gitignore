@@ -3,5 +3,5 @@ node_modules/
 .DS_Store
 *.log
 reports/conflicts/
-apps/skills-site/content/skills/
 # Keep the canonical registry + canonical skills/ committed — that's the source of truth.
+# Also keep apps/skills-site/content/ committed so Vercel ships it with the build.

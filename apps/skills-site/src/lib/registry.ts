@@ -5,9 +5,11 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-const REPO_ROOT = path.resolve(process.cwd(), "..", "..");
-const REGISTRY_PATH = path.join(REPO_ROOT, "skills.registry.json");
-const SKILLS_DIR = path.join(REPO_ROOT, "skills");
+// Content lives inside the app so Vercel ships it with the build.
+// scripts/sync.mjs writes here on every sync.
+const CONTENT_DIR = path.join(process.cwd(), "content");
+const REGISTRY_PATH = path.join(CONTENT_DIR, "skills.registry.json");
+const SKILLS_DIR = path.join(CONTENT_DIR, "skills");
 
 export type RegistrySkill = {
   id: string;

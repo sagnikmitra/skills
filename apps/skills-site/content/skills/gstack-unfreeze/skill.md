@@ -1,0 +1,80 @@
+# Gstack Unfreeze
+
+## Purpose
+
+Clear the freeze boundary set by /freeze, allowing edits to all directories
+again. Use when you want to widen edit scope without ending the session.
+Use when asked to "unfreeze", "unlock edits", "remove freeze", or
+"allow all edits". (gstack)
+
+## Description
+
+<!-- AUTO-GENERATED from SKILL.md.tmpl — do not edit directly -->
+<!-- Regenerate: bun run gen:skill-docs -->
+
+# /unfreeze — Clear Freeze Boundary
+
+Remove the edit restriction set by `/freeze`, allowing edits to all directories.
+
+```bash
+mkdir -p ~/.gstack/analytics
+echo '{"skill":"unfreeze","ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","repo":"'$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "unknown")'"}'  >> ~/.gstack/analytics/skill-usage.jsonl 2>/dev/null || true
+```
+
+## Clear the boundary
+
+```bash
+eval "$(~/.claude/skills/gstack/bin/gstack-paths)"
+STATE_DIR="$GSTACK_STATE_ROOT"
+if [ -f "$STATE_DIR/freeze-dir.txt" ]; then
+  PREV=$(cat "$STATE_DIR/freeze-dir.txt")
+  rm -f "$STATE_DIR/freeze-dir.txt"
+  echo "Freeze boundary cleared (was: $PREV). Edits are now allowed everywhere."
+else
+  echo "No freeze boundary was set."
+fi
+```
+
+Tell the user the result. Note that `/freeze` hooks are still registered for the
+session — they will just allow everything since no state file exists. To re-freeze,
+run `/freeze` again.
+
+## Source
+
+Claude
+
+## Capabilities
+
+- See original source for capabilities.
+
+## Inputs
+
+Inputs depend on the skill's trigger and arguments. See the source SKILL.md.
+
+## Outputs
+
+Outputs depend on the skill. Typical: files written, reports generated, agent actions performed.
+
+## When To Use
+
+When the user invokes `/gstack-unfreeze` or describes a task the skill's description matches.
+
+## Dependencies
+
+See the source skill's references and scripts folders.
+
+## Related Systems
+
+- Claude (if synced from `~/.claude/skills/gstack-unfreeze`)
+- HQ Project — landing page Skills section
+- MD Project (md.sgnk.ai) — `Skills/Gstack Unfreeze/`
+- Obsidian Vault — `Skills/Gstack Unfreeze/`
+
+## Examples
+
+See workflow.md.
+
+---
+
+_Source: ~/.claude/skills/gstack/unfreeze/SKILL.md_
+_Category: General_

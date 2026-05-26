@@ -612,6 +612,13 @@ async function main() {
   const registry = buildRegistry(merged);
   writeFile(regPath, JSON.stringify(registry, null, 2));
 
+  // Mirror the registry inside the skills-site content folder so the Next app
+  // can read it at build time without crossing rootDirectory.
+  if (config.destinations.skillsSite?.path) {
+    const mirror = join(dirname(expand(config.destinations.skillsSite.path)), "skills.registry.json");
+    writeFile(mirror, JSON.stringify(registry, null, 2));
+  }
+
   // Regenerate the HQ + vault Index.md MOC pages after sync.
   if (!DRY) {
     try {
