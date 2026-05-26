@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { getRegistry, getSkillBySlug, getSkillMarkdown } from "@/lib/registry";
+import { getRegistry, getSkillBySlug, getSkillMarkdown } from "../../../lib/registry";
 
 export async function generateStaticParams() {
   const reg = await getRegistry();

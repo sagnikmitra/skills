@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getRegistry, groupByCategory, type RegistrySkill } from "@/lib/registry";
+import { getRegistry, groupByCategory, type RegistrySkill } from "../lib/registry";
 
 type SP = { source?: string; q?: string };
 
