@@ -1,0 +1,7 @@
+node_modules/
+.next/
+.DS_Store
+*.log
+reports/conflicts/
+apps/skills-site/content/skills/
+# Keep the canonical registry + canonical skills/ committed — that's the source of truth.

@@ -1,0 +1,90 @@
+{
+  "$schema": "./scripts/config.schema.json",
+  "_comment": "Canonical config for the unified Skills Sync System. Edit paths to match your machine. Paths support ~ and absolute. Run `npm run sync` after editing.",
+  "sources": {
+    "claude": [
+      {
+        "path": "~/.claude/skills",
+        "kind": "skill-folder",
+        "skillFileNames": ["SKILL.md", "skill.md"],
+        "workflowFileNames": ["WORKFLOW.md", "WORKFLOW-MAP.md", "workflow.md"]
+      }
+    ],
+    "codex": [
+      {
+        "path": "~/.codex/skills",
+        "kind": "skill-folder",
+        "skillFileNames": ["SKILL.md", "skill.md", "instructions.md"],
+        "workflowFileNames": ["WORKFLOW.md", "workflow.md"],
+        "optional": true
+      },
+      {
+        "path": "~/.codex/agents",
+        "kind": "agent-folder",
+        "matchFiles": ["AGENTS.md", "agents.md", "*.codex.md"],
+        "optional": true
+      }
+    ],
+    "antigravity": [
+      {
+        "path": "~/antigravity/skills",
+        "kind": "skill-folder",
+        "skillFileNames": ["SKILL.md", "skill.md"],
+        "workflowFileNames": ["WORKFLOW.md", "workflow.md"],
+        "optional": true
+      },
+      {
+        "path": "~/Library/Application Support/Antigravity/skills",
+        "kind": "skill-folder",
+        "optional": true
+      }
+    ],
+    "manual": [
+      {
+        "path": "./manual-skills",
+        "kind": "skill-folder",
+        "optional": true
+      }
+    ]
+  },
+  "destinations": {
+    "registry": {
+      "path": "./skills.registry.json",
+      "normalized": "./skills"
+    },
+    "obsidian": {
+      "path": "/Users/sagnikmitra/Desktop/GitHub/md/Skills",
+      "writeFrontmatter": true,
+      "tags": ["skills"]
+    },
+    "mdProject": {
+      "path": "/Users/sagnikmitra/Desktop/GitHub/md/Skills",
+      "_comment": "Same folder as Obsidian — the md repo IS the vault AND the md.sgnk.ai source."
+    },
+    "hqVault": {
+      "path": "/Users/sagnikmitra/Desktop/GitHub/md/Projects/HQ/Skills",
+      "writeFrontmatter": true,
+      "tags": ["skills", "hq"],
+      "_comment": "Optional secondary mirror under the HQ project page."
+    },
+    "skillsSite": {
+      "path": "./apps/skills-site/content/skills",
+      "_comment": "Feeds skills.sgnk.ai Next.js app at build time."
+    }
+  },
+  "rules": {
+    "archiveOnRemoval": true,
+    "archiveFolder": "_Archived",
+    "conflictReportPath": "./reports/conflicts",
+    "publicSkillFilter": "all",
+    "excludeSlugs": [],
+    "categoryRules": [
+      { "pattern": "^pp-", "category": "Printing Press" },
+      { "pattern": "^sgnk-", "category": "sgnk" },
+      { "pattern": "^plan-", "category": "Planning" },
+      { "pattern": "^design-", "category": "Design" },
+      { "pattern": "^claude", "category": "Claude" },
+      { "pattern": "^codex", "category": "Codex" }
+    ]
+  }
+}

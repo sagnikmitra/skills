@@ -1,0 +1,17 @@
+{
+  "name": "skills-registry",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Unified Skills Sync System — one canonical registry for Claude / Codex / Antigravity, mirrored to HQ, MD (md.sgnk.ai), Obsidian, and skills.sgnk.ai.",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "sync": "node scripts/sync.mjs",
+    "sync:dry": "node scripts/sync.mjs --dry --verbose",
+    "sync:claude": "node scripts/sync.mjs --only=claude",
+    "sync:codex": "node scripts/sync.mjs --only=codex",
+    "sync:antigravity": "node scripts/sync.mjs --only=antigravity",
+    "registry:show": "node -e \"const r=require('./skills.registry.json');console.log('skills:',r.count);for(const s of r.skills.slice(0,20))console.log(' -',s.id,'·',s.category,'·',s.sources.join('+'))\"",
+    "verify": "node scripts/sync.mjs --dry && echo OK"
+  }
+}

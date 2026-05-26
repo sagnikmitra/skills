@@ -1,0 +1,75 @@
+:root {
+  --bg: #0d0e11;
+  --fg: #e9ecf2;
+  --muted: #8a93a4;
+  --accent: #7cc4ff;
+  --card: #16181d;
+  --border: #23262d;
+  --code: #1c1f25;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.55;
+}
+@media (prefers-color-scheme: light) {
+  :root { --bg: #ffffff; --fg: #1a1d22; --muted: #5a6270; --accent: #0066cc; --card: #f6f7f9; --border: #e3e6ec; --code: #f0f2f5; }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: var(--bg); color: var(--fg); }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code { background: var(--code); padding: 0 .25em; border-radius: 3px; font-size: .92em; }
+pre code { padding: 0; }
+pre { background: var(--code); padding: 1em; border-radius: 6px; overflow: auto; }
+
+.site-header { border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--bg); z-index: 10; }
+.site-nav { max-width: 1080px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; padding: .75rem 1.25rem; gap: 1rem; flex-wrap: wrap; }
+.brand { font-weight: 600; letter-spacing: -.01em; }
+.nav-links { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+.nav-links a { color: var(--muted); }
+.nav-links a:hover { color: var(--fg); text-decoration: none; }
+
+.site-main { max-width: 1080px; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+.site-footer { border-top: 1px solid var(--border); padding: 1.25rem; text-align: center; color: var(--muted); font-size: .875rem; }
+.site-footer code { color: var(--fg); }
+
+.hero { padding: 2rem 0 3rem; border-bottom: 1px solid var(--border); margin-bottom: 2rem; }
+.hero h1 { font-size: 2.25rem; margin: 0 0 .5rem; letter-spacing: -.02em; }
+.hero p { color: var(--muted); margin: 0; max-width: 60ch; }
+.hero .stats { display: flex; gap: 2rem; margin-top: 1.5rem; }
+.hero .stat { display: flex; flex-direction: column; }
+.hero .stat-n { font-size: 1.5rem; font-weight: 600; }
+.hero .stat-l { color: var(--muted); font-size: .875rem; }
+
+.filter-bar { display: flex; gap: .5rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+.filter-bar a { padding: .35rem .75rem; border: 1px solid var(--border); border-radius: 999px; font-size: .875rem; color: var(--muted); }
+.filter-bar a.active { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+
+.category-section { margin-bottom: 2.5rem; }
+.category-section h2 { font-size: 1.1rem; margin: 0 0 1rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; font-weight: 600; }
+
+.skill-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1rem; }
+.skill-card { display: block; padding: 1rem 1.25rem; background: var(--card); border: 1px solid var(--border); border-radius: 8px; transition: border-color .15s ease, transform .15s ease; }
+.skill-card:hover { border-color: var(--accent); transform: translateY(-1px); text-decoration: none; }
+.skill-card h3 { margin: 0 0 .4rem; font-size: 1rem; color: var(--fg); }
+.skill-card p { margin: 0; color: var(--muted); font-size: .875rem; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.skill-card .meta { display: flex; gap: .5rem; margin-top: .75rem; }
+.skill-card .badge { font-size: .7rem; padding: .15rem .5rem; border-radius: 999px; background: var(--code); color: var(--muted); border: 1px solid var(--border); }
+
+.skill-detail { display: grid; grid-template-columns: 220px 1fr; gap: 2.5rem; }
+@media (max-width: 800px) { .skill-detail { grid-template-columns: 1fr; } }
+.skill-side { color: var(--muted); font-size: .875rem; position: sticky; top: 4rem; align-self: start; }
+.skill-side dt { color: var(--muted); margin-top: .75rem; font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; }
+.skill-side dd { margin: 0; color: var(--fg); }
+.skill-side .tabs { display: flex; gap: .5rem; margin-bottom: 1rem; }
+.skill-side .tabs a { padding: .35rem .75rem; border: 1px solid var(--border); border-radius: 6px; color: var(--muted); }
+.skill-side .tabs a.active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+
+.markdown { line-height: 1.7; }
+.markdown h1 { font-size: 1.8rem; margin: 0 0 .5rem; letter-spacing: -.02em; }
+.markdown h2 { font-size: 1.25rem; margin: 2rem 0 .75rem; border-bottom: 1px solid var(--border); padding-bottom: .35rem; }
+.markdown h3 { font-size: 1.05rem; margin: 1.5rem 0 .5rem; }
+.markdown p, .markdown li { color: var(--fg); }
+.markdown ul, .markdown ol { padding-left: 1.5rem; }
+.markdown table { border-collapse: collapse; }
+.markdown th, .markdown td { border: 1px solid var(--border); padding: .4rem .75rem; }
+.markdown blockquote { border-left: 3px solid var(--accent); padding-left: 1rem; color: var(--muted); margin: 1rem 0; }
