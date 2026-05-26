@@ -26,7 +26,7 @@
 ## What this repo holds
 
 ```
-skills-registry/
+skills/
 ├── skills-sync.config.json     # paths + rules (edit me)
 ├── skills.registry.json        # GENERATED. The canonical source of truth.
 ├── skills/                     # GENERATED. Canonical normalized skill.md + workflow.md.

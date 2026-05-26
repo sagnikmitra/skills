@@ -19,6 +19,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   return (
     <>
       <section className="hero">
+        <div className="eyebrow">Skills registry</div>
         <h1>Skills</h1>
         <p>
           Public catalog of skills, workflows, and agent instructions. Synced from

@@ -1,5 +1,5 @@
 {
-  "name": "skills-registry",
+  "name": "skills",
   "version": "0.1.0",
   "private": true,
   "description": "Unified Skills Sync System — one canonical registry for Claude / Codex / Antigravity, mirrored to HQ, MD (md.sgnk.ai), Obsidian, and skills.sgnk.ai.",
