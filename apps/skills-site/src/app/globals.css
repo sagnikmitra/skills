@@ -437,6 +437,120 @@ pre code { background: transparent; padding: 0; border: 0; color: inherit; font-
   margin: 16px 0;
 }
 
+/* Source dots & badges (subtle category color, never decorative) */
+.dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
+  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 12%, transparent);
+}
+.dot-claude { background: #d97706; color: #d97706; }
+.dot-codex { background: #10a37f; color: #10a37f; }
+.dot-antigravity { background: #5e6ad2; color: #5e6ad2; }
+.dot-manual { background: #8a8f98; color: #8a8f98; }
+
+.stat-n[data-src="claude"] { color: #d97706; }
+.stat-n[data-src="codex"] { color: #10a37f; }
+.stat-n[data-src="antigravity"] { color: var(--primary); }
+
+.badge-claude { color: #f0a851 !important; border-color: color-mix(in srgb, #d97706 35%, var(--hairline)) !important; }
+.badge-codex { color: #5fd2b1 !important; border-color: color-mix(in srgb, #10a37f 35%, var(--hairline)) !important; }
+.badge-antigravity { color: #8b94e8 !important; border-color: color-mix(in srgb, #5e6ad2 35%, var(--hairline)) !important; }
+.badge-manual { color: var(--ink-subtle) !important; }
+
+/* Category headline dot */
+.cat-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-right: 10px;
+  vertical-align: middle;
+  box-shadow: 0 0 0 4px color-mix(in srgb, currentColor 8%, transparent);
+}
+.cat-count { color: var(--ink-tertiary); font-weight: 400; margin-left: 6px; }
+
+/* Skill-card: lift on hover, accent edge from category hue */
+.skill-card {
+  position: relative;
+  overflow: hidden;
+}
+.skill-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    140deg,
+    color-mix(in srgb, var(--cat, var(--primary)) 0%, transparent) 0%,
+    color-mix(in srgb, var(--cat, var(--primary)) 40%, transparent) 50%,
+    color-mix(in srgb, var(--cat, var(--primary)) 0%, transparent) 100%
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 200ms ease;
+  pointer-events: none;
+}
+.skill-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px -12px color-mix(in srgb, var(--cat, var(--primary)) 35%, transparent);
+}
+.skill-card:hover::before { opacity: 1; }
+.skill-card:hover h3 { color: var(--cat, var(--primary)); transition: color 160ms ease; }
+
+/* Hero stats: subtle pop-in */
+.hero .stat-n {
+  background: linear-gradient(180deg, var(--ink), color-mix(in srgb, var(--ink) 70%, var(--ink-subtle)));
+  -webkit-background-clip: text;
+          background-clip: text;
+  color: transparent;
+  animation: rise 480ms cubic-bezier(.2,.8,.2,1) both;
+}
+.hero .stat:nth-child(2) .stat-n { animation-delay: 60ms; }
+.hero .stat:nth-child(3) .stat-n { animation-delay: 120ms; }
+.hero .stat:nth-child(4) .stat-n { animation-delay: 180ms; }
+.hero .stat-n[data-src] { background: none; -webkit-background-clip: border-box; background-clip: border-box; }
+
+.hero h1 { animation: rise 600ms cubic-bezier(.2,.8,.2,1) both; }
+.hero p { animation: rise 600ms cubic-bezier(.2,.8,.2,1) 80ms both; }
+.eyebrow { animation: fade 500ms ease both; }
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* Brand mark gradient */
+.brand-mark {
+  background: linear-gradient(135deg, #828fff 0%, #5e6ad2 50%, #5e69d1 100%);
+  box-shadow: 0 0 0 1px color-mix(in srgb, #5e6ad2 40%, transparent),
+              0 0 16px -4px color-mix(in srgb, #5e6ad2 50%, transparent);
+  transition: transform 200ms ease, box-shadow 200ms ease;
+}
+.brand:hover .brand-mark {
+  transform: rotate(8deg) scale(1.08);
+  box-shadow: 0 0 0 1px #828fff, 0 0 20px -2px color-mix(in srgb, #828fff 70%, transparent);
+}
+
+/* Filter pill: slight grow + ring on active */
+.filter-bar a { position: relative; transition: color 160ms ease, background 160ms ease, transform 160ms ease; }
+.filter-bar a:hover { background: var(--surface-2); color: var(--ink); }
+.filter-bar a.active {
+  box-shadow: inset 0 0 0 1px var(--hairline-strong);
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
 /* Mobile nav collapse */
 @media (max-width: 768px) {
   .nav-links { display: none; }
