@@ -16,10 +16,32 @@ const mono = JetBrains_Mono({
   display: "swap",
 });
 
+const SITE = "https://skills.sgnk.ai";
+
 export const metadata: Metadata = {
-  title: "Skills · sgnk",
+  metadataBase: new URL(SITE),
+  title: {
+    default: "Skills · sgnk",
+    template: "%s",
+  },
   description:
     "Public catalog of skills, workflows, and agent instructions. Synced from Claude, Codex, and Antigravity into one canonical registry.",
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    url: SITE,
+    siteName: "sgnk · skills",
+    title: "Skills · sgnk",
+    description:
+      "Public catalog of skills, workflows, and agent instructions. Synced from Claude, Codex, and Antigravity.",
+  },
+  twitter: { card: "summary_large_image", title: "Skills · sgnk" },
+  robots: { index: true, follow: true },
+};
+
+export const viewport = {
+  themeColor: "#1f1e1d",
+  colorScheme: "dark" as const,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

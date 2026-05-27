@@ -1,12 +1,38 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { getRegistry, getSkillBySlug, getSkillMarkdown } from "../../../lib/registry";
 
+const SITE = "https://skills.sgnk.ai";
+
 export async function generateStaticParams() {
   const reg = await getRegistry();
-  return reg.skills.map((s) => ({ slug: s.slug }));
+  // Only build active skill pages — archived slugs would 404 anyway and waste build time.
+  return reg.skills.filter((s) => s.status === "active").map((s) => ({ slug: s.slug }));
+}
+
+export async function generateMetadata(
+  { params }: { params: Promise<{ slug: string }> }
+): Promise<Metadata> {
+  const { slug } = await params;
+  const skill = await getSkillBySlug(slug);
+  if (!skill) return { title: "Skill not found · sgnk" };
+  const desc = skill.description.replace(/\s+/g, " ").slice(0, 200);
+  return {
+    title: `${skill.name} · sgnk skills`,
+    description: desc,
+    alternates: { canonical: `${SITE}/s/${skill.slug}` },
+    openGraph: {
+      type: "article",
+      url: `${SITE}/s/${skill.slug}`,
+      title: `${skill.name} · sgnk skills`,
+      description: desc,
+      siteName: "sgnk · skills",
+    },
+    twitter: { card: "summary_large_image", title: skill.name, description: desc },
+  };
 }
 
 type SP = { tab?: string };
@@ -27,8 +53,23 @@ export default async function SkillPage({
 
   const md = await getSkillMarkdown(slug, tab);
 
+  const ld = {
+    "@context": "https://schema.org",
+    "@type": "TechArticle",
+    headline: skill.name,
+    description: skill.description,
+    inLanguage: "en",
+    url: `${SITE}/s/${skill.slug}`,
+    dateModified: skill.lastUpdated,
+    author: { "@type": "Person", name: "Sagnik Mitra", url: "https://sgnk.ai" },
+    keywords: [skill.category, ...skill.sources].join(", "),
+  };
+
   return (
     <article className="skill-detail">
+      <script type="application/ld+json" suppressHydrationWarning>
+        {JSON.stringify(ld)}
+      </script>
       <aside className="skill-side">
         <Link href="/">← All skills</Link>
         <h1 style={{ marginTop: ".75rem", fontSize: "1.25rem" }}>{skill.name}</h1>

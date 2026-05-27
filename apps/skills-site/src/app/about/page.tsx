@@ -1,3 +1,12 @@
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "About · sgnk skills",
+  description:
+    "How the skills registry works: scanner, normalizer, fan-out to HQ, md.sgnk.ai, Obsidian, and skills.sgnk.ai.",
+  alternates: { canonical: "/about" },
+};
+
 export default function AboutPage() {
   return (
     <article className="markdown">
