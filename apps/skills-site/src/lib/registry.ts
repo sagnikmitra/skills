@@ -55,13 +55,135 @@ export async function getSkillMarkdown(slug: string, file: "skill" | "workflow")
   }
 }
 
+/**
+ * Derive a richer category from id/name/category. Registry only has 6 buckets
+ * (115 in "General"); we re-bucket by id prefix / vendor namespace.
+ */
+export function deriveCategory(s: RegistrySkill): string {
+  const id = s.id.toLowerCase();
+  const cat = s.category.toLowerCase();
+
+  // sgnk first-party
+  if (id.startsWith("sgnk-") || id === "gvc" || cat === "sgnk") return "sgnk";
+
+  // Vendor / integration namespaces (plugin:foo or foo:bar)
+  const nsMatch = id.match(/^(?:plugin[_:])?([a-z0-9-]+):/);
+  if (nsMatch && nsMatch[1]) {
+    const ns: string = nsMatch[1];
+    const VENDOR_LABEL: Record<string, string> = {
+      vercel: "Vercel",
+      cloudflare: "Cloudflare",
+      supabase: "Supabase",
+      sentry: "Sentry",
+      firecrawl: "Firecrawl",
+      figma: "Figma",
+      coderabbit: "CodeRabbit",
+      codspeed: "CodSpeed",
+      "anthropic-skills": "Anthropic Skills",
+      superpowers: "Superpowers",
+      "chrome-devtools-mcp": "Chrome DevTools",
+      "claude-mem": "Claude Memory",
+      "claude-md-management": "CLAUDE.md",
+      "code-review": "Code Review",
+      "pr-review-toolkit": "PR Review",
+      "skill-creator": "Skill Creator",
+      caveman: "Caveman",
+      "frontend-design": "Frontend Design",
+      "claude-code-setup": "Claude Setup",
+    };
+    if (VENDOR_LABEL[ns]) return VENDOR_LABEL[ns]!;
+    return ns.charAt(0).toUpperCase() + ns.slice(1);
+  }
+
+  // Printing Press family
+  if (id.startsWith("pp-") || id.startsWith("printing-press")) return "Printing Press";
+
+  // Design / planning / review pipelines
+  if (id.startsWith("plan-")) return "Planning";
+  if (id.startsWith("design-") || id.startsWith("web-design")) return "Design";
+  if (id.endsWith("-review") || id.endsWith("-revamp")) return "Review";
+
+  // Investigation / debug
+  if (["investigate", "verify", "debug", "qa", "qa-only", "retro"].includes(id)) return "Debug & QA";
+
+  // Browser / automation
+  if (["browse", "gstack", "canary", "open-gstack-browser", "connect-chrome", "setup-browser-cookies"].includes(id))
+    return "Browser";
+
+  // Deployment / shipping
+  if (["ship", "land-and-deploy", "setup-deploy", "deploy-to-vercel", "vercel-cli-with-tokens"].includes(id))
+    return "Deploy";
+
+  // Docs / research
+  if (["find-docs", "find-skills", "document-release", "market-researcher", "context7-cli", "context7-mcp"].includes(id))
+    return "Docs & Research";
+
+  // Safety / control
+  if (["freeze", "unfreeze", "careful", "guard", "cso"].includes(id)) return "Safety";
+
+  // Health / metrics
+  if (["health", "benchmark", "score", "ux-revamp"].includes(id)) return "Health";
+
+  // Honor original non-General category
+  if (s.category && s.category !== "General") return s.category;
+
+  return "General";
+}
+
+// Pinned section order; everything else alpha after.
+const CATEGORY_ORDER = [
+  "sgnk",
+  "Printing Press",
+  "Design",
+  "Planning",
+  "Review",
+  "Vercel",
+  "Cloudflare",
+  "Supabase",
+  "Sentry",
+  "Firecrawl",
+  "Figma",
+  "Anthropic Skills",
+  "Superpowers",
+  "Chrome DevTools",
+  "Claude Memory",
+  "CLAUDE.md",
+  "Code Review",
+  "PR Review",
+  "CodeRabbit",
+  "CodSpeed",
+  "Caveman",
+  "Frontend Design",
+  "Browser",
+  "Deploy",
+  "Debug & QA",
+  "Docs & Research",
+  "Safety",
+  "Health",
+  "Skill Creator",
+  "General",
+];
+
 export function groupByCategory(skills: RegistrySkill[]): Map<string, RegistrySkill[]> {
   const map = new Map<string, RegistrySkill[]>();
   for (const s of skills) {
-    const arr = map.get(s.category) ?? [];
+    const cat = deriveCategory(s);
+    const arr = map.get(cat) ?? [];
     arr.push(s);
-    map.set(s.category, arr);
+    map.set(cat, arr);
   }
   for (const arr of map.values()) arr.sort((a, b) => a.name.localeCompare(b.name));
-  return new Map([...map.entries()].sort(([a], [b]) => a.localeCompare(b)));
+
+  const rank = (c: string) => {
+    const i = CATEGORY_ORDER.indexOf(c);
+    return i === -1 ? 999 : i;
+  };
+  return new Map(
+    [...map.entries()].sort(([a], [b]) => {
+      const ra = rank(a);
+      const rb = rank(b);
+      if (ra !== rb) return ra - rb;
+      return a.localeCompare(b);
+    })
+  );
 }

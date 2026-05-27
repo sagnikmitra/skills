@@ -551,6 +551,95 @@ pre code { background: transparent; padding: 0; border: 0; color: inherit; font-
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
 
+/* Search bar */
+.search-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin: 0 0 16px;
+  background: var(--surface-1);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-md);
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+.search-bar:focus-within {
+  border-color: var(--primary-focus);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-focus) 25%, transparent);
+}
+.search-icon {
+  color: var(--ink-subtle);
+  padding: 0 12px;
+  font-size: 16px;
+  pointer-events: none;
+}
+.search-bar input[type="search"] {
+  flex: 1;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  color: var(--ink);
+  font-family: var(--font-text);
+  font-size: 15px;
+  padding: 10px 12px 10px 0;
+  letter-spacing: -0.05px;
+}
+.search-bar input::placeholder { color: var(--ink-subtle); }
+.search-bar input::-webkit-search-cancel-button { display: none; }
+.search-clear {
+  color: var(--ink-subtle);
+  font-size: 20px;
+  line-height: 1;
+  padding: 4px 12px;
+  border-left: 1px solid var(--hairline);
+  transition: color 120ms ease;
+}
+.search-clear:hover { color: var(--ink); }
+
+.result-count {
+  color: var(--ink-subtle);
+  font-size: 14px;
+  margin: 0 0 24px;
+}
+.result-count strong { color: var(--ink); font-weight: 500; }
+.result-count em { font-style: normal; color: var(--primary); }
+
+.empty-state {
+  color: var(--ink-subtle);
+  font-size: 16px;
+  padding: 48px 0;
+  text-align: center;
+}
+.empty-state strong { color: var(--ink); font-weight: 500; }
+.empty-state a { color: var(--primary); }
+
+/* Featured (sgnk) section — coral hairline lift */
+.category-featured {
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--cat) 6%, transparent),
+    transparent 60%);
+  border: 1px solid color-mix(in srgb, var(--cat) 25%, var(--hairline));
+  border-radius: var(--r-lg);
+  padding: 24px;
+  margin-bottom: 64px;
+  position: relative;
+}
+.category-featured::before {
+  content: "FEATURED";
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  font-family: var(--font-text);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.6px;
+  color: var(--cat);
+  padding: 2px 8px;
+  border: 1px solid color-mix(in srgb, var(--cat) 40%, var(--hairline));
+  border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--cat) 10%, var(--canvas));
+}
+.category-featured h2 { color: var(--ink); }
+
 /* Mobile nav collapse */
 @media (max-width: 768px) {
   .nav-links { display: none; }
