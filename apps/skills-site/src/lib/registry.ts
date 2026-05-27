@@ -13,6 +13,7 @@ const REGISTRY_PATH = path.join(CONTENT_DIR, "skills.registry.json");
 const SKILLS_DIR = path.join(CONTENT_DIR, "skills");
 
 export type RegistrySkill = {
+  // Below mirrors the canonical registry shape produced by scripts/sync.mjs.
   id: string;
   name: string;
   slug: string;
@@ -81,6 +82,20 @@ export async function getSkillMarkdown(slug: string, file: "skill" | "workflow")
  * Derive a richer category from id/name/category. Registry only has 6 buckets
  * (115 in "General"); we re-bucket by id prefix / vendor namespace.
  */
+export async function getRelatedSkills(
+  slug: string,
+  limit = 4,
+): Promise<RegistrySkill[]> {
+  const reg = await getRegistry();
+  const target = reg.skills.find((s) => s.slug === slug);
+  if (!target) return [];
+  const cat = deriveCategory(target);
+  return reg.skills
+    .filter((s) => s.status === "active" && s.slug !== slug && deriveCategory(s) === cat)
+    .sort((a, b) => new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime())
+    .slice(0, limit);
+}
+
 export function deriveCategory(s: RegistrySkill): string {
   const id = s.id.toLowerCase();
   const cat = s.category.toLowerCase();

@@ -1,5 +1,7 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { getRegistry, groupByCategory, type RegistrySkill } from "../lib/registry";
+import { SearchBox } from "../components/search-box";
 
 type SP = { source?: string; q?: string };
 
@@ -49,24 +51,9 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         </div>
       </section>
 
-      <form className="search-bar" action="/" method="GET" role="search">
-        <span className="search-icon" aria-hidden>⌕</span>
-        <input
-          type="search"
-          name="q"
-          defaultValue={qRaw}
-          maxLength={100}
-          placeholder="Search skills by name, id, or description…"
-          autoComplete="off"
-          aria-label="Search skills"
-        />
-        {source && source !== "all" && <input type="hidden" name="source" value={source} />}
-        {q && (
-          <Link href={`/${source ? `?source=${source}` : ""}`} className="search-clear" aria-label="Clear search">
-            ×
-          </Link>
-        )}
-      </form>
+      <Suspense fallback={<div className="search-bar" aria-hidden><span className="search-icon">⌕</span><input type="search" disabled placeholder="Search skills…" /></div>}>
+        <SearchBox initial={qRaw} />
+      </Suspense>
 
       <div className="filter-bar">
         <Link href={q ? `/?q=${encodeURIComponent(qRaw)}` : "/"} className={!source ? "active" : ""}>All ({reg.count})</Link>

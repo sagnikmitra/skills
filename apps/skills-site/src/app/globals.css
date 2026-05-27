@@ -641,6 +641,115 @@ pre code { background: transparent; padding: 0; border: 0; color: inherit; font-
 }
 .category-featured h2 { color: var(--ink); }
 
+/* Side actions (copy link + GitHub source) */
+.side-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 24px; }
+.copy-link, .side-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  font-family: var(--font-text);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-muted);
+  background: var(--surface-1);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  text-align: left;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+.copy-link:hover, .side-link:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+  border-color: var(--hairline-strong);
+}
+
+/* Related skills section */
+.related { margin-top: 64px; padding-top: 32px; border-top: 1px solid var(--hairline); }
+.related h2 {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: -0.3px;
+  color: var(--ink);
+  margin: 0 0 16px;
+  text-transform: none;
+}
+.related-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+.related-card {
+  padding: 14px 16px;
+  background: var(--surface-1);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-md);
+  color: var(--ink);
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.related-card:hover {
+  background: var(--surface-2);
+  border-color: var(--primary);
+  color: var(--ink);
+}
+.related-card h3 {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.2px;
+  margin: 0 0 4px;
+}
+.related-card p {
+  font-size: 12px;
+  color: var(--ink-subtle);
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* Theme toggle button */
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: transparent;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-md);
+  color: var(--ink-subtle);
+  cursor: pointer;
+  font-size: 16px;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+.theme-toggle:hover {
+  background: var(--surface-1);
+  color: var(--ink);
+  border-color: var(--hairline-strong);
+}
+
+/* Light theme — Claude-warm inverse. Applied when [data-theme="light"] on <html>. */
+html[data-theme="light"] {
+  --primary: #c46739;
+  --primary-hover: #b7572e;
+  --primary-focus: #a04826;
+  --on-primary: #ffffff;
+  --ink: #1f1e1d;
+  --ink-muted: #3d3a36;
+  --ink-subtle: #6a665f;
+  --ink-tertiary: #94908a;
+  --canvas: #faf9f5;
+  --surface-1: #f3f1ea;
+  --surface-2: #ebe8de;
+  --surface-3: #e2ded2;
+  --surface-4: #d8d3c5;
+  --hairline: #d8d3c5;
+  --hairline-strong: #c6c0b0;
+  --hairline-tertiary: #b6af9d;
+  color-scheme: light;
+}
+
 /* Mobile nav collapse — hamburger disclosure */
 .nav-toggle { display: none; }
 .nav-toggle > summary {

@@ -12,11 +12,13 @@ const SECURITY_HEADERS = [
     value: [
       "default-src 'self'",
       // Next runtime injects inline bootstraps; without 'unsafe-inline' the app breaks.
-      "script-src 'self' 'unsafe-inline'",
+      // Vercel Analytics + Speed Insights load scripts from va.vercel-scripts.com
+      // and beacon to vitals.vercel-insights.com.
+      "script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com",
       "style-src 'self' 'unsafe-inline'",
       "font-src 'self' data:",
       "img-src 'self' data: blob:",
-      "connect-src 'self'",
+      "connect-src 'self' https://vitals.vercel-insights.com https://va.vercel-scripts.com",
       "frame-ancestors 'self'",
       "base-uri 'self'",
       "form-action 'self'",

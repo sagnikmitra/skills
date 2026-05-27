@@ -3,7 +3,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { getRegistry, getSkillBySlug, getSkillMarkdown } from "../../../lib/registry";
+import { getRegistry, getSkillBySlug, getSkillMarkdown, getRelatedSkills, deriveCategory } from "../../../lib/registry";
+import { CopyLink } from "../../../components/copy-link";
 
 const SITE = "https://skills.sgnk.ai";
 
@@ -52,6 +53,10 @@ export default async function SkillPage({
   if (!skill) notFound();
 
   const md = await getSkillMarkdown(slug, tab);
+  const related = await getRelatedSkills(slug, 4);
+  const category = deriveCategory(skill);
+  const ghBase = "https://github.com/sagnikmitra/skills/blob/main/skills";
+  const ghUrl = `${ghBase}/${skill.slug}/${tab}.md`;
 
   const ld = {
     "@context": "https://schema.org",
@@ -92,9 +97,25 @@ export default async function SkillPage({
           </Link>
         </div>
         <dl>
-          <dt>Category</dt><dd>{skill.category}</dd>
-          <dt>Sources</dt><dd>{skill.sources.join(", ")}</dd>
-          <dt>Last updated</dt><dd>{new Date(skill.lastUpdated).toLocaleDateString()}</dd>
+          <dt>Category</dt>
+          <dd>{category}</dd>
+          <dt>Sources</dt>
+          <dd>
+            {skill.sources.map((src, i) => (
+              <span key={src}>
+                <Link href={`/source/${src.toLowerCase()}`}>{src}</Link>
+                {i < skill.sources.length - 1 ? ", " : ""}
+              </span>
+            ))}
+          </dd>
+          <dt>Last updated</dt>
+          <dd>
+            <time dateTime={skill.lastUpdated}>
+              {new Date(skill.lastUpdated).toLocaleDateString("en-US", {
+                year: "numeric", month: "short", day: "numeric",
+              })}
+            </time>
+          </dd>
           <dt>Status</dt><dd>{skill.status}</dd>
           <dt>Mirrored to</dt>
           <dd>
@@ -104,9 +125,34 @@ export default async function SkillPage({
             Obsidian
           </dd>
         </dl>
+        <div className="side-actions">
+          <CopyLink path={`/s/${skill.slug}`} />
+          <a
+            href={ghUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="side-link"
+            aria-label="View source on GitHub"
+          >
+            ⎘ Source ↗
+          </a>
+        </div>
       </aside>
       <section className="markdown">
         <ReactMarkdown remarkPlugins={[remarkGfm]}>{md}</ReactMarkdown>
+        {related.length > 0 && (
+          <aside className="related">
+            <h2>Related in {category}</h2>
+            <div className="related-grid">
+              {related.map((r) => (
+                <Link key={r.id} href={`/s/${r.slug}`} className="related-card">
+                  <h3>{r.name}</h3>
+                  <p>{r.description.slice(0, 140)}{r.description.length > 140 ? "…" : ""}</p>
+                </Link>
+              ))}
+            </div>
+          </aside>
+        )}
       </section>
     </article>
   );
