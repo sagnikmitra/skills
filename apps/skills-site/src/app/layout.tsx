@@ -32,11 +32,28 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <a
               href="https://github.com/sagnikmitra/skills"
               target="_blank"
-              rel="noreferrer"
+              rel="noopener noreferrer"
               className="nav-cta"
             >
               GitHub ↗
             </a>
+            <details className="nav-toggle">
+              <summary aria-label="Open navigation menu">☰</summary>
+              <div className="mobile-panel">
+                <Link href="/">All</Link>
+                <Link href="/?source=claude">Claude</Link>
+                <Link href="/?source=codex">Codex</Link>
+                <Link href="/?source=antigravity">Antigravity</Link>
+                <Link href="/about">About</Link>
+                <a
+                  href="https://github.com/sagnikmitra/skills"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  GitHub ↗
+                </a>
+              </div>
+            </details>
           </nav>
         </header>
         <main className="site-main">{children}</main>

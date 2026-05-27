@@ -6,8 +6,13 @@ type SP = { source?: string; q?: string };
 export default async function HomePage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
   const reg = await getRegistry();
-  const source = sp.source?.toLowerCase();
-  const q = sp.q?.trim().toLowerCase() ?? "";
+  // Validate source against a strict allowlist; reject anything else.
+  const VALID_SOURCES = new Set(["claude", "codex", "antigravity", "manual"]);
+  const rawSource = sp.source?.toLowerCase();
+  const source = rawSource && VALID_SOURCES.has(rawSource) ? rawSource : undefined;
+  // Cap query length to prevent DOS via huge ?q=...
+  const qRaw = (sp.q ?? "").slice(0, 100).trim();
+  const q = qRaw.toLowerCase();
 
   let skills: RegistrySkill[] = reg.skills.filter((s) => s.status === "active");
   if (source && source !== "all") {
@@ -49,7 +54,8 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         <input
           type="search"
           name="q"
-          defaultValue={q}
+          defaultValue={qRaw}
+          maxLength={100}
           placeholder="Search skills by name, id, or description…"
           autoComplete="off"
           aria-label="Search skills"
@@ -63,16 +69,16 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       </form>
 
       <div className="filter-bar">
-        <Link href={q ? `/?q=${encodeURIComponent(q)}` : "/"} className={!source ? "active" : ""}>All ({reg.count})</Link>
-        <Link href={`/?source=claude${q ? `&q=${encodeURIComponent(q)}` : ""}`} className={source === "claude" ? "active" : ""}>Claude</Link>
-        <Link href={`/?source=codex${q ? `&q=${encodeURIComponent(q)}` : ""}`} className={source === "codex" ? "active" : ""}>Codex</Link>
-        <Link href={`/?source=antigravity${q ? `&q=${encodeURIComponent(q)}` : ""}`} className={source === "antigravity" ? "active" : ""}>Antigravity</Link>
-        <Link href={`/?source=manual${q ? `&q=${encodeURIComponent(q)}` : ""}`} className={source === "manual" ? "active" : ""}>Manual</Link>
+        <Link href={q ? `/?q=${encodeURIComponent(qRaw)}` : "/"} className={!source ? "active" : ""}>All ({reg.count})</Link>
+        <Link href={`/?source=claude${q ? `&q=${encodeURIComponent(qRaw)}` : ""}`} className={source === "claude" ? "active" : ""}>Claude</Link>
+        <Link href={`/?source=codex${q ? `&q=${encodeURIComponent(qRaw)}` : ""}`} className={source === "codex" ? "active" : ""}>Codex</Link>
+        <Link href={`/?source=antigravity${q ? `&q=${encodeURIComponent(qRaw)}` : ""}`} className={source === "antigravity" ? "active" : ""}>Antigravity</Link>
+        <Link href={`/?source=manual${q ? `&q=${encodeURIComponent(qRaw)}` : ""}`} className={source === "manual" ? "active" : ""}>Manual</Link>
       </div>
 
       {q && (
-        <p className="result-count">
-          {skills.length} {skills.length === 1 ? "result" : "results"} for <strong>{q}</strong>
+        <p className="result-count" role="status" aria-live="polite">
+          {skills.length} {skills.length === 1 ? "result" : "results"} for <strong>{qRaw}</strong>
           {preserveSource && <> in <em>{source}</em></>}
         </p>
       )}
@@ -114,7 +120,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
 
       {skills.length === 0 && (
         <p className="empty-state">
-          No skills match <strong>{q || "this filter"}</strong>.{" "}
+          No skills match <strong>{qRaw || "this filter"}</strong>.{" "}
           <Link href="/">Clear filters →</Link>
         </p>
       )}

@@ -9,7 +9,7 @@ export async function generateStaticParams() {
   return reg.skills.map((s) => ({ slug: s.slug }));
 }
 
-type SP = { tab?: "skill" | "workflow" };
+type SP = { tab?: string };
 
 export default async function SkillPage({
   params,
@@ -19,7 +19,9 @@ export default async function SkillPage({
   searchParams: Promise<SP>;
 }) {
   const { slug } = await params;
-  const { tab = "skill" } = await searchParams;
+  const { tab: rawTab } = await searchParams;
+  // Strictly validate the tab; anything else collapses to "skill".
+  const tab: "skill" | "workflow" = rawTab === "workflow" ? "workflow" : "skill";
   const skill = await getSkillBySlug(slug);
   if (!skill) notFound();
 
@@ -30,9 +32,23 @@ export default async function SkillPage({
       <aside className="skill-side">
         <Link href="/">← All skills</Link>
         <h1 style={{ marginTop: ".75rem", fontSize: "1.25rem" }}>{skill.name}</h1>
-        <div className="tabs">
-          <Link href={`/s/${slug}?tab=skill`} className={tab === "skill" ? "active" : ""}>skill.md</Link>
-          <Link href={`/s/${slug}?tab=workflow`} className={tab === "workflow" ? "active" : ""}>workflow.md</Link>
+        <div className="tabs" role="tablist" aria-label="Skill documents">
+          <Link
+            href={`/s/${slug}?tab=skill`}
+            role="tab"
+            aria-selected={tab === "skill"}
+            className={tab === "skill" ? "active" : ""}
+          >
+            skill.md
+          </Link>
+          <Link
+            href={`/s/${slug}?tab=workflow`}
+            role="tab"
+            aria-selected={tab === "workflow"}
+            className={tab === "workflow" ? "active" : ""}
+          >
+            workflow.md
+          </Link>
         </div>
         <dl>
           <dt>Category</dt><dd>{skill.category}</dd>

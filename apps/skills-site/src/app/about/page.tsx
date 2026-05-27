@@ -39,7 +39,7 @@ HQ landing · HQ sidebar · md.sgnk.ai · Obsidian · skills.sgnk.ai`}</code></p
       </ul>
       <p>
         Source repo:{" "}
-        <a href="https://github.com/sagnikmitra/skills" target="_blank" rel="noreferrer">
+        <a href="https://github.com/sagnikmitra/skills" target="_blank" rel="noopener noreferrer">
           github.com/sagnikmitra/skills
         </a>
       </p>

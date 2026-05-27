@@ -46,10 +46,23 @@ export async function getSkillBySlug(slug: string): Promise<RegistrySkill | null
   return reg.skills.find((s) => s.slug === slug) ?? null;
 }
 
+const SAFE_SLUG = /^[a-z0-9][a-z0-9-]{0,80}$/i;
+const SAFE_FILE = new Set(["skill", "workflow"]);
+
 export async function getSkillMarkdown(slug: string, file: "skill" | "workflow"): Promise<string> {
+  // Defense-in-depth: route validation already filters via generateStaticParams,
+  // but reject anything that could escape SKILLS_DIR.
+  if (!SAFE_SLUG.test(slug) || !SAFE_FILE.has(file)) {
+    return `_invalid skill reference_`;
+  }
   const p = path.join(SKILLS_DIR, slug, `${file}.md`);
+  // Verify resolved path is still inside SKILLS_DIR.
+  const resolved = path.resolve(p);
+  if (!resolved.startsWith(path.resolve(SKILLS_DIR) + path.sep)) {
+    return `_invalid skill reference_`;
+  }
   try {
-    return await fs.readFile(p, "utf8");
+    return await fs.readFile(resolved, "utf8");
   } catch {
     return `_${file}.md not found for ${slug}_`;
   }

@@ -206,7 +206,11 @@ function scanAgentFolderSource(source, sourceName) {
     if (!source.optional) warn(`source missing (not optional): ${base}`);
     return [];
   }
-  const matchers = (source.matchFiles ?? ["AGENTS.md"]).map((p) => new RegExp("^" + p.replace(/\*/g, ".*") + "$", "i"));
+  const matchers = (source.matchFiles ?? ["AGENTS.md"]).map((p) => {
+    // Escape regex metachars, then turn glob '*' back into '.*'.
+    const escaped = p.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*");
+    return new RegExp("^" + escaped + "$", "i");
+  });
   const out = [];
   function walk(dir) {
     for (const e of readdirSync(dir, { withFileTypes: true })) {
@@ -273,12 +277,15 @@ function extractFirstParagraph(md) {
 function extractListUnder(md, headings) {
   if (!md) return null;
   for (const h of headings) {
-    const re = new RegExp(`^#{1,6}\\s+${h}\\b.*$`, "im");
+    const re = new RegExp(`^(#{1,6})\\s+${h}\\b.*$`, "im");
     const m = md.match(re);
     if (!m) continue;
+    const level = m[1].length;
     const start = md.indexOf(m[0]) + m[0].length;
     const rest = md.slice(start);
-    const stop = rest.search(/^#{1,6}\s+/m);
+    // Stop only at a heading of equal or higher level (≤ current depth).
+    const stopRe = new RegExp(`^#{1,${level}}\\s+`, "m");
+    const stop = rest.search(stopRe);
     const block = stop === -1 ? rest : rest.slice(0, stop);
     const items = [...block.matchAll(/^\s*[-*]\s+(.+)$/gm)].map((mm) => mm[1].trim());
     if (items.length) return items;
@@ -425,9 +432,12 @@ function detectConflicts(newSkills, priorRegistry) {
   const conflicts = [];
   const reg = config.rules.conflictReportPath ?? "./reports/conflicts";
 
+  const seenPaths = new Set();
   for (const dest of [config.destinations.obsidian, config.destinations.mdProject, config.destinations.hqVault]) {
     if (!dest) continue;
     const destBase = expand(dest.path);
+    if (seenPaths.has(destBase)) continue; // dedupe identical paths
+    seenPaths.add(destBase);
     for (const skill of newSkills) {
       const destSkill = join(destBase, titleCase(skill.slug), "skill.md");
       const destWf = join(destBase, titleCase(skill.slug), "workflow.md");
@@ -497,13 +507,16 @@ function writeSkillToDestinations(skill) {
   writeFile(join(canonicalDir, "skill.md"), skill.skillMd);
   writeFile(join(canonicalDir, "workflow.md"), skill.workflowMd);
 
-  // Destinations with TitleCase folders
+  // Destinations with TitleCase folders — dedupe by resolved path.
   const titleName = titleCase(skill.slug);
+  const seenPaths = new Set();
   for (const destKey of ["obsidian", "mdProject", "hqVault"]) {
     const dest = config.destinations[destKey];
     if (!dest || !dest.path) continue;
-    if (destKey === "mdProject" && config.destinations.obsidian?.path === dest.path) continue; // dedupe identical paths
-    const dir = join(expand(dest.path), titleName);
+    const base = expand(dest.path);
+    if (seenPaths.has(base)) continue;
+    seenPaths.add(base);
+    const dir = join(base, titleName);
     const skillBody = dest.writeFrontmatter
       ? withFrontmatter(skill, dest.tags ?? ["skills"], "skill") + skill.skillMd
       : skill.skillMd;
@@ -522,18 +535,27 @@ function writeSkillToDestinations(skill) {
   }
 }
 
+// Quote any YAML flow-scalar that contains structural chars; otherwise leave bare.
+function yamlScalar(s) {
+  const str = String(s);
+  if (/[,:[\]{}#&*!|>'"%@`\n]/.test(str)) {
+    return `"${str.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+  }
+  return str;
+}
+
 function withFrontmatter(skill, tags, kind) {
   const t = Array.from(new Set([...(tags ?? []), ...skill.sources.map((s) => s.toLowerCase())]));
   return `---
-title: ${titleCase(skill.slug)}
+title: ${yamlScalar(titleCase(skill.slug))}
 type: ${kind === "workflow" ? "workflow" : "skill"}
-slug: ${skill.slug}
-source: ${skill.source}
-sources: [${skill.sources.join(", ")}]
-category: ${skill.category}
+slug: ${yamlScalar(skill.slug)}
+source: ${yamlScalar(skill.source)}
+sources: [${skill.sources.map(yamlScalar).join(", ")}]
+category: ${yamlScalar(skill.category)}
 status: active
 last_synced: ${new Date().toISOString().slice(0, 10)}
-tags: [${t.join(", ")}]
+tags: [${t.map(yamlScalar).join(", ")}]
 ---
 
 `;
@@ -583,7 +605,9 @@ async function main() {
 
   if (!scans.length) {
     warn("No skills discovered. Check config paths.");
-    process.exit(0);
+    // Exit non-zero — a misconfigured path that finds 0 skills should NOT
+    // be treated as success, since the prior registry would silently rot.
+    process.exit(1);
   }
 
   // Apply exclude filter
@@ -624,7 +648,11 @@ async function main() {
     try {
       const { spawnSync } = await import("node:child_process");
       const r = spawnSync(process.execPath, [join(ROOT, "scripts", "generate-hq-index.mjs")], { stdio: "inherit" });
-      if (r.status !== 0) warn("generate-hq-index.mjs exited with status " + r.status);
+      if (r.status !== 0) {
+        warn("generate-hq-index.mjs exited with status " + r.status);
+        // Propagate failure unless conflicts already set a non-zero exit downstream.
+        if (!conflicts.length) process.exitCode = 1;
+      }
     } catch (e) {
       warn("could not run generate-hq-index.mjs: " + (e?.message ?? e));
     }
