@@ -72,13 +72,13 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
 
 // Stable per-category hue — derived from name so order doesn't shift palette.
 const CAT_PALETTE = [
-  "#5e6ad2", // lavender (primary)
-  "#7a7fad", // brand-secure
+  "#d97757", // Claude coral (primary)
+  "#c8967a", // warm tan
   "#4cb782", // mint
   "#e0a23a", // amber
   "#c97cd6", // orchid
   "#5aa9e6", // sky
-  "#e07a7a", // coral
+  "#e07a7a", // coral-pink
   "#8ad0b8", // sage
 ];
 function categoryHue(cat: string): string {

@@ -1,31 +1,31 @@
-/* Linear design system — dark canvas, lavender accent, hairline borders. */
+/* Claude dark theme — warm charcoal canvas, coral accent. */
 :root {
-  /* Brand */
-  --primary: #5e6ad2;
-  --primary-hover: #828fff;
-  --primary-focus: #5e69d1;
-  --on-primary: #ffffff;
+  /* Brand — Claude coral */
+  --primary: #d97757;
+  --primary-hover: #e3916f;
+  --primary-focus: #c8623f;
+  --on-primary: #1f1e1d;
 
-  /* Ink */
-  --ink: #f7f8f8;
-  --ink-muted: #d0d6e0;
-  --ink-subtle: #8a8f98;
-  --ink-tertiary: #62666d;
+  /* Ink — warm off-white */
+  --ink: #f5f4ee;
+  --ink-muted: #c8c6bf;
+  --ink-subtle: #8a8780;
+  --ink-tertiary: #5e5b54;
 
-  /* Surface ladder */
-  --canvas: #010102;
-  --surface-1: #0f1011;
-  --surface-2: #141516;
-  --surface-3: #18191a;
-  --surface-4: #191a1b;
+  /* Surface ladder — warm dark greys, slight brown tint */
+  --canvas: #1f1e1d;
+  --surface-1: #262624;
+  --surface-2: #2d2c2a;
+  --surface-3: #353330;
+  --surface-4: #3a3835;
 
   /* Hairlines */
-  --hairline: #23252a;
-  --hairline-strong: #34343a;
-  --hairline-tertiary: #3e3e44;
+  --hairline: #3a3835;
+  --hairline-strong: #4a4744;
+  --hairline-tertiary: #524f4b;
 
   /* Semantic */
-  --success: #27a644;
+  --success: #4cb782;
 
   /* Type stacks (Inter as documented substitute; SF Pro local fallback) */
   --font-display: "Inter", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
@@ -527,16 +527,16 @@ pre code { background: transparent; padding: 0; border: 0; color: inherit; font-
 }
 @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
 
-/* Brand mark gradient */
+/* Brand mark gradient (Claude coral) */
 .brand-mark {
-  background: linear-gradient(135deg, #828fff 0%, #5e6ad2 50%, #5e69d1 100%);
-  box-shadow: 0 0 0 1px color-mix(in srgb, #5e6ad2 40%, transparent),
-              0 0 16px -4px color-mix(in srgb, #5e6ad2 50%, transparent);
+  background: linear-gradient(135deg, var(--primary-hover) 0%, var(--primary) 50%, var(--primary-focus) 100%);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 40%, transparent),
+              0 0 16px -4px color-mix(in srgb, var(--primary) 50%, transparent);
   transition: transform 200ms ease, box-shadow 200ms ease;
 }
 .brand:hover .brand-mark {
   transform: rotate(8deg) scale(1.08);
-  box-shadow: 0 0 0 1px #828fff, 0 0 20px -2px color-mix(in srgb, #828fff 70%, transparent);
+  box-shadow: 0 0 0 1px var(--primary-hover), 0 0 20px -2px color-mix(in srgb, var(--primary-hover) 70%, transparent);
 }
 
 /* Filter pill: slight grow + ring on active */
