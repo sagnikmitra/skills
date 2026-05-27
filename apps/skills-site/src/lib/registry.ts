@@ -4,6 +4,7 @@
 
 import fs from "node:fs/promises";
 import path from "node:path";
+import { cache } from "react";
 
 // Content lives inside the app so Vercel ships it with the build.
 // scripts/sync.mjs writes here on every sync.
@@ -36,10 +37,18 @@ export type Registry = {
   skills: RegistrySkill[];
 };
 
-export async function getRegistry(): Promise<Registry> {
-  const raw = await fs.readFile(REGISTRY_PATH, "utf8");
-  return JSON.parse(raw) as Registry;
-}
+// React.cache memoizes within a single render pass — page + per-slug lookups
+// no longer reread the registry file twice.
+export const getRegistry = cache(async (): Promise<Registry> => {
+  try {
+    const raw = await fs.readFile(REGISTRY_PATH, "utf8");
+    return JSON.parse(raw) as Registry;
+  } catch {
+    // Graceful fallback so a missing/corrupt registry returns 200 with empty,
+    // not a 500 stack page.
+    return { schemaVersion: 1, generatedAt: new Date().toISOString(), count: 0, skills: [] };
+  }
+});
 
 export async function getSkillBySlug(slug: string): Promise<RegistrySkill | null> {
   const reg = await getRegistry();

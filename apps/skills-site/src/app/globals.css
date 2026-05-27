@@ -27,10 +27,10 @@
   /* Semantic */
   --success: #4cb782;
 
-  /* Type stacks (Inter as documented substitute; SF Pro local fallback) */
-  --font-display: "Inter", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
-  --font-text: "Inter", "SF Pro Text", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  /* Type stacks — next/font supplies var(--font-inter) and var(--font-mono-self) */
+  --font-display: var(--font-inter), "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
+  --font-text: var(--font-inter), "SF Pro Text", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-mono: var(--font-mono-self), ui-monospace, "SF Mono", Menlo, monospace;
 
   /* Radii */
   --r-xs: 4px;
@@ -449,16 +449,16 @@ pre code { background: transparent; padding: 0; border: 0; color: inherit; font-
 }
 .dot-claude { background: #d97706; color: #d97706; }
 .dot-codex { background: #10a37f; color: #10a37f; }
-.dot-antigravity { background: #5e6ad2; color: #5e6ad2; }
+.dot-antigravity { background: #8b5fbf; color: #8b5fbf; }
 .dot-manual { background: #8a8f98; color: #8a8f98; }
 
 .stat-n[data-src="claude"] { color: #d97706; }
 .stat-n[data-src="codex"] { color: #10a37f; }
-.stat-n[data-src="antigravity"] { color: var(--primary); }
+.stat-n[data-src="antigravity"] { color: #b48ad6; }
 
 .badge-claude { color: #f0a851 !important; border-color: color-mix(in srgb, #d97706 35%, var(--hairline)) !important; }
 .badge-codex { color: #5fd2b1 !important; border-color: color-mix(in srgb, #10a37f 35%, var(--hairline)) !important; }
-.badge-antigravity { color: #8b94e8 !important; border-color: color-mix(in srgb, #5e6ad2 35%, var(--hairline)) !important; }
+.badge-antigravity { color: #b48ad6 !important; border-color: color-mix(in srgb, #8b5fbf 35%, var(--hairline)) !important; }
 .badge-manual { color: var(--ink-subtle) !important; }
 
 /* Category headline dot */

@@ -13,8 +13,8 @@ const SECURITY_HEADERS = [
       "default-src 'self'",
       // Next runtime injects inline bootstraps; without 'unsafe-inline' the app breaks.
       "script-src 'self' 'unsafe-inline'",
-      "style-src 'self' 'unsafe-inline' https://rsms.me",
-      "font-src 'self' https://rsms.me data:",
+      "style-src 'self' 'unsafe-inline'",
+      "font-src 'self' data:",
       "img-src 'self' data: blob:",
       "connect-src 'self'",
       "frame-ancestors 'self'",

@@ -95,24 +95,39 @@ function statMtime(p) {
 
 function parseFrontmatter(md) {
   if (!md || !md.startsWith("---")) return { frontmatter: {}, body: md ?? "" };
-  const end = md.indexOf("\n---", 4);
-  if (end === -1) return { frontmatter: {}, body: md };
+  // Terminator must be on its own line — `\n---` followed by newline or EOF.
+  // Prevents `---foo` inside a quoted value from prematurely ending FM.
+  const term = md.match(/\n---(?:\r?\n|$)/);
+  if (!term || term.index === undefined) return { frontmatter: {}, body: md };
+  const end = term.index;
   const fmRaw = md.slice(4, end).replace(/^\n/, "");
-  const body = md.slice(end + 4).replace(/^\n+/, "");
+  const body = md.slice(end + term[0].length).replace(/^\n+/, "");
   const frontmatter = {};
   const lines = fmRaw.split("\n");
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    const m = line.match(/^([a-zA-Z_][\w-]*)\s*:\s*(.*)$/);
+    // Allow keys with dots/digits-start as well; trailing comments stripped.
+    const m = line.match(/^([\w.-]+)\s*:\s*(.*?)(?:\s+#.*)?$/);
     if (!m) continue;
     let val = m[2].trim();
-    // YAML block scalar (| or >): gather following indented lines.
+    // YAML block scalar (| or >): gather following indented lines using the
+    // FIRST line's indent as the strip baseline. Stop when indent drops below.
     if (val === "|" || val === ">" || val === "|-" || val === ">-") {
       const block = [];
       const fold = val.startsWith(">");
       i++;
-      while (i < lines.length && /^\s{2,}/.test(lines[i])) {
-        block.push(lines[i].replace(/^\s{2}/, ""));
+      let baseIndent = -1;
+      while (i < lines.length) {
+        const ln = lines[i];
+        if (ln.trim() === "") { block.push(""); i++; continue; }
+        const indent = ln.match(/^(\s*)/)[1].length;
+        if (baseIndent === -1) {
+          if (indent < 2) break; // block scalar requires indent
+          baseIndent = indent;
+        } else if (indent < baseIndent) {
+          break;
+        }
+        block.push(ln.slice(baseIndent));
         i++;
       }
       i--; // step back so outer loop increments correctly
@@ -161,6 +176,10 @@ function scanSkillFolderSource(source, sourceName) {
 
     if (subSkillDirs.length > 0) {
       for (const ss of subSkillDirs) {
+        // Single-dash join keeps slug URL stability across the existing
+        // registry. Collision with a plain skill slug is theoretical (would
+        // require a plain dir literally named e.g. "cloudflare-cloudflare")
+        // and mergeBySlug's most-recent-wins logs the overwrite case in info.
         skills.push(buildScanRecord({
           sourceName,
           rootDir: join(dir, ss.name),
@@ -270,8 +289,21 @@ function normalize(scan) {
 
 function extractFirstParagraph(md) {
   if (!md) return null;
-  const lines = md.split("\n").filter((l) => l.trim() && !l.startsWith("#"));
-  return lines[0]?.trim().slice(0, 280) ?? null;
+  // Walk lines, skip headings + blanks, then accumulate until a blank line —
+  // a paragraph can span many lines; previous version only took the first line.
+  const lines = md.split("\n");
+  const para = [];
+  let started = false;
+  for (const line of lines) {
+    const t = line.trim();
+    if (!started && (!t || t.startsWith("#"))) continue;
+    if (!t) { if (started) break; else continue; }
+    if (t.startsWith("#")) { if (started) break; else continue; }
+    started = true;
+    para.push(t);
+  }
+  if (!para.length) return null;
+  return para.join(" ").slice(0, 280);
 }
 
 function extractListUnder(md, headings) {

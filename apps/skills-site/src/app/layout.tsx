@@ -1,6 +1,20 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+
+// next/font self-hosts at build time → no third-party CSP exception needed,
+// and Next handles font-display: swap + size-adjust automatically.
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
+});
+const mono = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono-self",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Skills · sgnk",
@@ -10,11 +24,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <head>
-        <link rel="preconnect" href="https://rsms.me/" />
-        <link rel="stylesheet" href="https://rsms.me/inter/inter.css" />
-      </head>
+    <html lang="en" className={`${inter.variable} ${mono.variable}`}>
       <body>
         <header className="site-header">
           <nav className="site-nav">
@@ -59,7 +69,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <main className="site-main">{children}</main>
         <footer className="site-footer">
           <p>
-            Canonical source: <code>skills/skills.registry.json</code> · synced from{" "}
+            Canonical source: <code>apps/skills-site/content/skills.registry.json</code> · synced from{" "}
             Claude / Codex / Antigravity · mirrored to HQ, md.sgnk.ai, Obsidian.
           </p>
         </footer>
