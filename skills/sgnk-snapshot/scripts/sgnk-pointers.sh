@@ -70,8 +70,15 @@ printf '%s\n' "$ID" | write_atomic "$SGNK_DIR/LATEST"
 
 JOURNAL="$SGNK_DIR/JOURNAL.md"
 [ -f "$JOURNAL" ] || printf '# SGNK Journal — append-only snapshot log\n' > "$JOURNAL"
-printf '%s|%s/%s|%s|%s|%s|%s\n' \
-  "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$TOOL" "$ACCOUNT" "$ID" "$MODE" "${HEAD_SHA:0:12}" "$SUMMARY" >> "$JOURNAL"
+# Journal "by" field: if ACCOUNT already contains a slash (e.g. "claude/sagnik"
+# from ~/.sgnk/identity), it's already fully-qualified — use as-is. Otherwise
+# prefix with $TOOL. Avoids "claude/claude/sagnik" double-prefix.
+case "$ACCOUNT" in
+  */*) by="$ACCOUNT" ;;
+  *)   by="$TOOL/$ACCOUNT" ;;
+esac
+printf '%s|%s|%s|%s|%s|%s\n' \
+  "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$by" "$ID" "$MODE" "${HEAD_SHA:0:12}" "$SUMMARY" >> "$JOURNAL"
 jlines="$(wc -l < "$JOURNAL" | tr -d ' ')"; case "$jlines" in (''|*[!0-9]*) jlines=0;; esac
 if [ "$jlines" -gt "$JOURNAL_MAX" ]; then
   { head -n1 "$JOURNAL"; tail -n "$((JOURNAL_MAX/2))" "$JOURNAL"; } | write_atomic "$JOURNAL"
@@ -94,7 +101,7 @@ acquire "$GLOBAL_LOCK"
 REG="$HOME/.sgnk/GLOBAL-REGISTRY.md"
 [ -f "$REG" ] || printf '# SGNK Global Registry — repo -> latest snapshot\n' > "$REG"
 { grep -v -F "	$REPO_ROOT	" "$REG" 2>/dev/null || true
-  printf '\t%s\t%s\t%s\t%s/%s\n' "$REPO_ROOT" "$ID" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$TOOL" "$ACCOUNT"
+  printf '\t%s\t%s\t%s\t%s\n' "$REPO_ROOT" "$ID" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$by"
 } | write_atomic "$REG"
 release "$GLOBAL_LOCK"
 
