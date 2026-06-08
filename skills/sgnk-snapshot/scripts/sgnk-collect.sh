@@ -276,6 +276,153 @@ configs_present_json="$( {
 } | sort -u | arr_lines 30)"
 [ -z "$configs_present_json" ] && configs_present_json="[]"
 
+# DB schema — prisma models (parse names + field counts), drizzle schema files,
+# supabase migrations.
+db_schema_json='null'
+prisma_models_json='[]'
+if [ -f "$REPO_ROOT/prisma/schema.prisma" ]; then
+  prisma_models_json="$(awk '
+      /^model[[:space:]]+/ { in_m=1; name=$2; fields=0; next }
+      in_m && /^}/ { print name "\t" fields; in_m=0; next }
+      in_m && /^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*[[:space:]]+/ && !/^[[:space:]]*\/\// && !/^[[:space:]]*@@/ { fields++ }
+    ' "$REPO_ROOT/prisma/schema.prisma" 2>/dev/null \
+    | head -40 \
+    | jq -R -s 'split("\n") | map(select(length>0)) | map(split("\t")) |
+                map({model:.[0], fields:(.[1]|tonumber? // 0)})')"
+  [ -z "$prisma_models_json" ] && prisma_models_json='[]'
+fi
+drizzle_files_json="$( ( cd "$REPO_ROOT" 2>/dev/null && \
+  find src/db src/schema drizzle src/drizzle db -type f \( -name 'schema.ts' -o -name 'schema.js' -o -name '*.schema.ts' \) 2>/dev/null ) \
+  | sort -u | head -10 | arr_lines 10)"
+[ -z "$drizzle_files_json" ] && drizzle_files_json='[]'
+supabase_migrations="$( [ -d "$REPO_ROOT/supabase/migrations" ] && \
+  ls -1 "$REPO_ROOT/supabase/migrations" 2>/dev/null | wc -l | tr -d ' ' || echo 0)"
+supabase_migrations="${supabase_migrations:-0}"
+db_schema_json="$(jq -n \
+  --argjson prisma "$prisma_models_json" \
+  --argjson drizzle "$drizzle_files_json" \
+  --argjson supabase_count "$supabase_migrations" \
+  '{
+    prisma_models: $prisma,
+    drizzle_schema_files: $drizzle,
+    supabase_migrations: $supabase_count
+   } | if (.prisma_models|length)==0 and (.drizzle_schema_files|length)==0 and .supabase_migrations==0 then null else . end')"
+printf '%s' "$db_schema_json" | jq -e . >/dev/null 2>&1 || db_schema_json='null'
+
+# env_groups deferred — req_env_json is populated by the runtime phase below;
+# the actual computation happens after that, then is merged into codebase_json.
+env_groups_json='[]'
+
+# Convention docs — agent-readable rules at repo root. Each entry: path + first
+# H1 (truncated). Lets recall point the resuming agent at them without reading.
+convention_paths=$(for p in CLAUDE.md AGENTS.md GEMINI.md .windsurfrules \
+                            .github/copilot-instructions.md .cursor/rules; do
+  [ -e "$REPO_ROOT/$p" ] && echo "$p"
+done)
+convention_docs_json='[]'
+if [ -n "$convention_paths" ]; then
+  convention_docs_json="$(printf '%s\n' "$convention_paths" \
+    | while IFS= read -r p; do
+        [ -z "$p" ] && continue
+        if [ -d "$REPO_ROOT/$p" ]; then
+          # .cursor/rules — list files
+          ( cd "$REPO_ROOT/$p" 2>/dev/null && ls -1 2>/dev/null | head -5 ) \
+            | while IFS= read -r f; do
+                [ -z "$f" ] && continue
+                printf '%s/%s\t(rule file)\n' "$p" "$f"
+              done
+        else
+          h1="$(awk '/^# / { sub(/^# /,""); print; exit }' "$REPO_ROOT/$p" 2>/dev/null | head -c 120)"
+          [ -z "$h1" ] && h1="(no H1)"
+          printf '%s\t%s\n' "$p" "$h1"
+        fi
+      done \
+    | head -12 \
+    | jq -R -s 'split("\n") | map(select(length>0)) | map(split("\t")) |
+                map({path:.[0], h1:.[1]})')"
+  [ -z "$convention_docs_json" ] && convention_docs_json='[]'
+fi
+
+# Top 15 prod dependencies — merge across language ecosystems present in the
+# repo. Each entry tagged with `lang`. Falls back to devDependencies when
+# `.dependencies` is empty (typical for monorepo roots). Capped 15 total.
+top_deps_tmp="$(mktemp -t sgnk-deps.XXXXXX)"
+if [ -f "$REPO_ROOT/package.json" ]; then
+  pj_deps="$(jq -c '(.dependencies // {}) | to_entries | map({name:.key, version:.value, lang:"js"})' "$REPO_ROOT/package.json" 2>/dev/null || echo '[]')"
+  if [ "$(printf '%s' "$pj_deps" | jq 'length' 2>/dev/null)" = "0" ]; then
+    # monorepo root with empty .dependencies — show devDeps so the agent still
+    # learns the toolchain (typescript, vitest, etc).
+    pj_deps="$(jq -c '(.devDependencies // {}) | to_entries | map({name:.key, version:.value, lang:"js-dev"})' "$REPO_ROOT/package.json" 2>/dev/null || echo '[]')"
+  fi
+  printf '%s' "$pj_deps" | jq -c '.[]' >> "$top_deps_tmp" 2>/dev/null
+fi
+if [ -f "$REPO_ROOT/pyproject.toml" ]; then
+  awk '
+      /^\[project\]/ { in_p=1; next }
+      /^\[/ { in_p=0 }
+      in_p && /^dependencies[[:space:]]*=/ { in_d=1; next }
+      in_d && /^[[:space:]]*\]/ { in_d=0; next }
+      in_d && /[A-Za-z]/ { gsub(/[",\047[:space:]]/,""); if (length($0)>0) print $0 }
+    ' "$REPO_ROOT/pyproject.toml" 2>/dev/null \
+    | head -10 \
+    | while IFS= read -r d; do jq -nc --arg n "$d" '{name:$n, version:null, lang:"py"}'; done \
+    >> "$top_deps_tmp"
+fi
+if [ -f "$REPO_ROOT/requirements.txt" ]; then
+  grep -avE '^[[:space:]]*(#|$)' "$REPO_ROOT/requirements.txt" 2>/dev/null \
+    | sed 's/[<>=!~].*$//' | sed 's/[[:space:]]//g' | head -10 \
+    | while IFS= read -r d; do
+        [ -z "$d" ] && continue
+        jq -nc --arg n "$d" '{name:$n, version:null, lang:"py"}'
+      done \
+    >> "$top_deps_tmp"
+fi
+if [ -f "$REPO_ROOT/Cargo.toml" ]; then
+  awk '
+      /^\[dependencies\]/ { in_d=1; next }
+      /^\[/ { in_d=0 }
+      in_d && /^[a-zA-Z]/ { sub(/[[:space:]]*=.*$/,""); print }
+    ' "$REPO_ROOT/Cargo.toml" 2>/dev/null | head -10 \
+    | while IFS= read -r d; do
+        [ -z "$d" ] && continue
+        jq -nc --arg n "$d" '{name:$n, version:null, lang:"rust"}'
+      done \
+    >> "$top_deps_tmp"
+fi
+top_deps_json="$(jq -s '.[0:15]' "$top_deps_tmp" 2>/dev/null)"
+[ -z "$top_deps_json" ] && top_deps_json='[]'
+printf '%s' "$top_deps_json" | jq -e . >/dev/null 2>&1 || top_deps_json='[]'
+rm -f "$top_deps_tmp"
+
+# ADRs — architectural decision records. Cheap detection.
+adrs_json='[]'
+for d in docs/adr docs/decisions docs/adrs adr; do
+  if [ -d "$REPO_ROOT/$d" ]; then
+    adrs_json="$( ( cd "$REPO_ROOT/$d" 2>/dev/null && ls -1 *.md 2>/dev/null ) \
+      | head -15 \
+      | while IFS= read -r f; do
+          [ -z "$f" ] && continue
+          h1="$(awk '/^# / { sub(/^# /,""); print; exit }' "$REPO_ROOT/$d/$f" 2>/dev/null | head -c 120)"
+          [ -z "$h1" ] && h1="$f"
+          printf '%s/%s\t%s\n' "$d" "$f" "$h1"
+        done \
+      | jq -R -s 'split("\n") | map(select(length>0)) | map(split("\t")) |
+                  map({path:.[0], title:.[1]})')"
+    [ -z "$adrs_json" ] && adrs_json='[]'
+    break
+  fi
+done
+
+# Test counts per top-module (so the agent knows which modules are tested).
+# Joined into top_modules at assembly time.
+tests_per_module_tmp="$(mktemp -t sgnk-tests.XXXXXX)"
+g ls-files \
+  | grep -aE '(test|spec)' \
+  | grep -avE '(node_modules|\.venv|\.next|\.vercel|graphify-out|dist|build)' \
+  | awk -F/ 'NF==1 {print $0; next} NF>1 {print $1"/"$2}' \
+  | sort | uniq -c | sort -rn \
+  | awk '{c=$1; $1=""; sub(/^ /,""); printf "%s\t%d\n", $0, c}' > "$tests_per_module_tmp"
+
 # Description: package.json.description ?: first README paragraph
 description=""
 [ -f "$REPO_ROOT/package.json" ] && description="$(jq -r '.description // empty' "$REPO_ROOT/package.json" 2>/dev/null)"
@@ -292,6 +439,15 @@ if [ -z "$description" ]; then
   done
 fi
 
+# Merge test counts into top_modules via a path → count lookup table
+tests_per_module_json="$(jq -R -s 'split("\n") | map(select(length>0)) | map(split("\t")) |
+  map({path:.[0], tests:(.[1]|tonumber? // 0)})' < "$tests_per_module_tmp")"
+[ -z "$tests_per_module_json" ] && tests_per_module_json='[]'
+rm -f "$tests_per_module_tmp"
+top_modules_json="$(jq -n --argjson modules "$top_modules_json" --argjson tests "$tests_per_module_json" \
+  '($tests | map({(.path): .tests}) | add // {}) as $tlu
+   | $modules | map(. + {tests: ($tlu[.path] // 0)})')"
+
 codebase_json="$(jq -n \
   --argjson tree "$code_tree_json" \
   --argjson top_modules "$top_modules_json" \
@@ -303,6 +459,11 @@ codebase_json="$(jq -n \
   --argjson py_scripts "$py_scripts_json" \
   --argjson routes "$routes_json" \
   --argjson configs "$configs_present_json" \
+  --argjson db_schema "$db_schema_json" \
+  --argjson env_groups "$env_groups_json" \
+  --argjson convention_docs "$convention_docs_json" \
+  --argjson top_deps "$top_deps_json" \
+  --argjson adrs "$adrs_json" \
   --arg description "$description" \
   '{
     description: (if $description=="" then null else $description end),
@@ -316,6 +477,11 @@ codebase_json="$(jq -n \
       tauri: $tauri,
       python_scripts: $py_scripts
     },
+    db_schema: $db_schema,
+    env_groups: $env_groups,
+    convention_docs: $convention_docs,
+    top_deps: $top_deps,
+    adrs: $adrs,
     routes: $routes,
     configs_present: $configs
   }')"
@@ -378,6 +544,25 @@ for f in .env.example .env.sample .env.template; do
     break
   fi
 done
+
+# env_groups (deferred from the codebase phase — needs req_env_json from above).
+# Buckets env vars by provider prefix (GITHUB_*, STRIPE_*, …) so the agent sees
+# which services this app is wired to without parsing the raw list.
+env_groups_json="$(printf '%s' "$req_env_json" | jq -c '
+  if type=="array" and length>0 then
+    reduce .[] as $v ({};
+      ( $v | ascii_upcase | capture("^(?<p>[A-Z][A-Z0-9]*)_")? // {p:"_UNGROUPED"} ).p as $prefix
+      | .[$prefix] = ((.[$prefix] // 0) + 1)
+    )
+    | to_entries | map({prefix:.key, count:.value}) | sort_by(-.count) | .[0:15]
+  else [] end
+' 2>/dev/null)"
+[ -z "$env_groups_json" ] && env_groups_json='[]'
+printf '%s' "$env_groups_json" | jq -e . >/dev/null 2>&1 || env_groups_json='[]'
+
+# Patch codebase_json to include the now-computed env_groups (the earlier
+# assembly used a placeholder []).
+codebase_json="$(printf '%s' "$codebase_json" | jq --argjson eg "$env_groups_json" '.env_groups = $eg')"
 
 # ---- contracts / migrations (names of files in flight) ---------------------
 changed_now="$( { g diff --name-only HEAD; g ls-files --others --exclude-standard; } | sort -u )"

@@ -175,14 +175,27 @@ mechanical-mode cards (short KEY only; mode tag `auto`) and tell the user.
      1. **What this app does** — one paragraph, from `manifest.codebase.description`.
      2. **Frameworks & stack** — `manifest.codebase.frameworks` + `toolchain.languages` +
         `toolchain.package_manager` + `toolchain.runtime_versions`.
-     3. **Top modules** — bulleted list of `codebase.top_modules` (path → file count).
+     3. **Top modules** — bulleted list of `codebase.top_modules` with `files` AND
+        `tests` count per path (so the agent sees which modules have test coverage).
      4. **Tree (2 levels)** — fenced block of `codebase.tree`.
-     5. **Entry points** — `package_scripts` (name → cmd), `package_bins`, `tauri`
+     5. **Top dependencies** — `codebase.top_deps` (each entry has `lang` field:
+        `js`/`js-dev`/`py`/`rust`/etc). The agent reads "what stack" at a glance.
+     6. **Entry points** — `package_scripts` (name → cmd), `package_bins`, `tauri`
         (bundle id + product name), `python_scripts`.
-     6. **Routes / public surface** — `codebase.routes` if any, else "no route files
+     7. **Routes / public surface** — `codebase.routes` if any, else "no route files
         detected".
-     7. **Key configs** — `codebase.configs_present` as a comma-list.
-     8. **Required env (names only)** — `manifest.runtime.required_env`.
+     8. **DB schema** — `codebase.db_schema`: list prisma models (name + field
+        count), drizzle schema files, supabase migration count. Skip section if
+        `db_schema == null`.
+     9. **External services (env groups)** — `codebase.env_groups` (prefix →
+        count). Lets the agent see "this app talks to STRIPE, SUPABASE, AI
+        providers" without parsing the raw env list.
+     10. **Required env (names only)** — `manifest.runtime.required_env`.
+     11. **Convention docs** — `codebase.convention_docs` (path + first H1).
+         Pointer to CLAUDE.md / AGENTS.md / .cursor/rules / .windsurfrules /
+         .github/copilot-instructions.md so the resuming agent reads them.
+     12. **ADRs** — `codebase.adrs` (path + title). Skip section if empty.
+     13. **Key configs** — `codebase.configs_present` as a comma-list.
      Write this card mechanically from the manifest — do not add narrative beyond
      what the fields provide. Yaml header `kind: codebase-derived`.
 
