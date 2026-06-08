@@ -5,3 +5,6 @@ node_modules/
 reports/conflicts/
 # Keep the canonical registry + canonical skills/ committed — that's the source of truth.
 # Also keep apps/skills-site/content/ committed so Vercel ships it with the build.
+
+# SGNK continuity snapshots (local working memory)
+.sgnk/
