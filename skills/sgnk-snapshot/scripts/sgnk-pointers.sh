@@ -15,7 +15,14 @@
 set -uo pipefail
 
 REPO_ROOT="${1:-}"; ID="${2:-}"; MODE="${3:-full}"; HEAD_SHA="${4:-}"; SUMMARY="${5:-}"
-TOOL="${6:-${SGNK_TOOL:-claude}}"; ACCOUNT="${7:-${SGNK_ACCOUNT:-unknown}}"
+TOOL="${6:-${SGNK_TOOL:-claude}}"; ACCOUNT="${7:-${SGNK_ACCOUNT:-}}"
+# Mirror sgnk-collect.sh's account resolution: fall back to ~/.sgnk/identity
+# so journal/registry rows don't record "unknown" while the manifest correctly
+# reads the identity file.
+if [ -z "$ACCOUNT" ] && [ -f "$HOME/.sgnk/identity" ]; then
+  ACCOUNT="$(head -n1 "$HOME/.sgnk/identity" 2>/dev/null)"
+fi
+ACCOUNT="${ACCOUNT:-unknown}"
 RETAIN="${SGNK_RETAIN:-100}"; JOURNAL_MAX="${SGNK_JOURNAL_MAX:-5000}"
 case "$RETAIN" in (''|*[!0-9]*) RETAIN=100;; esac          # guard set -u arithmetic
 case "$JOURNAL_MAX" in (''|*[!0-9]*) JOURNAL_MAX=5000;; esac
