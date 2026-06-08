@@ -173,6 +173,154 @@ dockerfile=false; [ -f "$REPO_ROOT/Dockerfile" ] && dockerfile=true
 node_v="$(command -v node >/dev/null 2>&1 && node -v 2>/dev/null || echo "")"
 python_v="$(command -v python3 >/dev/null 2>&1 && python3 --version 2>/dev/null | awk '{print $2}' || echo "")"
 
+# ---- codebase (structure, entry points, frameworks, routes, configs) -------
+# Mechanical, bounded snapshot of *what this codebase looks like* so a resuming
+# agent doesn't have to read src/ from scratch. Never reads .env*. Capped lists.
+
+# 2-level dir tree, code-likely roots only
+code_tree_json="$( ( cd "$REPO_ROOT" 2>/dev/null && \
+  find . -mindepth 1 -maxdepth 2 -type d \
+    \( -name '.git' -o -name 'node_modules' -o -name '.venv' -o -name 'venv' \
+       -o -name '.vercel' -o -name 'dist' -o -name 'build' -o -name 'target' \
+       -o -name 'vendor' -o -name 'graphify-out' -o -name '.sgnk' -o -name '.next' \
+       -o -name 'site-packages' -o -name '__pycache__' -o -name '.pytest_cache' \
+       -o -name '.mypy_cache' -o -name 'coverage' -o -name '.turbo' \
+       -o -name '.cache' -o -name '.idea' -o -name '.vscode' \) -prune -o \
+    -type d -print 2>/dev/null ) \
+  | sed 's|^\./||' | grep -v '^\.$' | sort | head -60 | arr_lines 60)"
+[ -z "$code_tree_json" ] && code_tree_json="[]"
+
+# Top 10 modules by tracked file count. Mix of top-level files (e.g. app.py) and
+# 2-deep dirs (e.g. apps/web) so flat repos and monorepos both surface honestly.
+top_modules_json="$(g ls-files \
+  | awk -F/ 'NF==1 {print $0; next} NF>1 {print $1"/"$2}' \
+  | grep -vE '^(node_modules|\.venv|venv|dist|build|target|vendor|graphify-out|\.sgnk|\.next|\.vercel|site-packages|__pycache__|coverage|\.turbo|\.git)(/|$)' \
+  | sort | uniq -c | sort -rn | head -10 \
+  | awk '{c=$1; $1=""; sub(/^ /,""); printf "%s\t%d\n", $0, c}' \
+  | jq -R -s 'split("\n")|map(select(length>0))|map(split("\t"))|map({path:.[0], files:(.[1]|tonumber? // 0)})')"
+[ -z "$top_modules_json" ] && top_modules_json="[]"
+
+# Frameworks detected from files (cheap presence checks)
+frameworks_json="$( {
+  { [ -f "$REPO_ROOT/next.config.js" ] || [ -f "$REPO_ROOT/next.config.ts" ] || [ -f "$REPO_ROOT/next.config.mjs" ]; } && echo nextjs
+  { [ -f "$REPO_ROOT/vite.config.js" ] || [ -f "$REPO_ROOT/vite.config.ts" ]; } && echo vite
+  [ -f "$REPO_ROOT/svelte.config.js" ] && echo sveltekit
+  { [ -f "$REPO_ROOT/astro.config.mjs" ] || [ -f "$REPO_ROOT/astro.config.ts" ]; } && echo astro
+  { [ -f "$REPO_ROOT/nuxt.config.ts" ] || [ -f "$REPO_ROOT/nuxt.config.js" ]; } && echo nuxt
+  [ -f "$REPO_ROOT/remix.config.js" ] && echo remix
+  [ -f "$REPO_ROOT/angular.json" ] && echo angular
+  [ -d "$REPO_ROOT/src-tauri" ] && echo tauri
+  [ -f "$REPO_ROOT/manage.py" ] && echo django
+  { [ -f "$REPO_ROOT/pyproject.toml" ] && grep -q -i 'fastapi' "$REPO_ROOT/pyproject.toml" 2>/dev/null; } && echo fastapi
+  { [ -f "$REPO_ROOT/requirements.txt" ] && grep -qi '^fastapi' "$REPO_ROOT/requirements.txt" 2>/dev/null; } && echo fastapi
+  { [ -f "$REPO_ROOT/requirements.txt" ] && grep -qi '^flask' "$REPO_ROOT/requirements.txt" 2>/dev/null; } && echo flask
+  [ -f "$REPO_ROOT/go.mod" ] && echo go
+  { [ -f "$REPO_ROOT/Gemfile" ] && grep -q '^gem .rails.' "$REPO_ROOT/Gemfile" 2>/dev/null; } && echo rails
+  [ -f "$REPO_ROOT/prisma/schema.prisma" ] && echo prisma
+  { [ -f "$REPO_ROOT/drizzle.config.ts" ] || [ -f "$REPO_ROOT/drizzle.config.js" ]; } && echo drizzle
+  [ -f "$REPO_ROOT/supabase/config.toml" ] && echo supabase
+} | sort -u | arr_lines 12)"
+[ -z "$frameworks_json" ] && frameworks_json="[]"
+
+# Entry points from package.json
+ep_main=""; ep_scripts_json="[]"; ep_bins_json="[]"
+if [ -f "$REPO_ROOT/package.json" ]; then
+  ep_main="$(jq -r '.main // empty' "$REPO_ROOT/package.json" 2>/dev/null)"
+  ep_scripts_json="$(jq -c '(.scripts // {}) | to_entries | map({name:.key, cmd:.value}) | .[0:15]' "$REPO_ROOT/package.json" 2>/dev/null || echo '[]')"
+  printf '%s' "$ep_scripts_json" | jq -e . >/dev/null 2>&1 || ep_scripts_json='[]'
+  ep_bins_json="$(jq -c '(.bin // {}) | if type=="string" then {"_":.} else . end | to_entries | map({name:.key, path:.value}) | .[0:10]' "$REPO_ROOT/package.json" 2>/dev/null || echo '[]')"
+  printf '%s' "$ep_bins_json" | jq -e . >/dev/null 2>&1 || ep_bins_json='[]'
+fi
+
+# Tauri config (bundle id + product name)
+tauri_json='null'
+for tc in src-tauri/tauri.conf.json tauri.conf.json; do
+  if [ -f "$REPO_ROOT/$tc" ]; then
+    tauri_json="$(jq -c --arg p "$tc" '{path:$p, identifier:(.identifier // .tauri.bundle.identifier // null), productName:(.productName // .package.productName // null), version:(.version // .package.version // null)}' "$REPO_ROOT/$tc" 2>/dev/null || echo 'null')"
+    printf '%s' "$tauri_json" | jq -e . >/dev/null 2>&1 || tauri_json='null'
+    break
+  fi
+done
+
+# Python entry points (pyproject [project.scripts])
+py_scripts_json='[]'
+if [ -f "$REPO_ROOT/pyproject.toml" ]; then
+  py_scripts_json="$(awk '
+      /^\[project\.scripts\]/{f=1; next}
+      /^\[/{f=0}
+      f && /=/ { gsub(/[ \"\047]/,""); n=index($0,"="); if (n>0) print substr($0,1,n-1)"\t"substr($0,n+1) }
+    ' "$REPO_ROOT/pyproject.toml" 2>/dev/null | head -10 \
+    | jq -R -s 'split("\n")|map(select(length>0))|map(split("\t"))|map({name:.[0], cmd:.[1]})')"
+  [ -z "$py_scripts_json" ] && py_scripts_json='[]'
+fi
+
+# Route files (cheap globs, capped)
+routes_json="$( ( cd "$REPO_ROOT" 2>/dev/null && find app pages src/app src/pages src/routes \
+    -type f \( -name 'page.tsx' -o -name 'page.ts' -o -name 'page.jsx' -o -name 'page.js' \
+               -o -name 'route.ts' -o -name 'route.js' -o -name 'layout.tsx' \
+               -o -name '+page.svelte' -o -name '+server.ts' \) 2>/dev/null ) \
+  | sort -u | head -30 | arr_lines 30)"
+[ -z "$routes_json" ] && routes_json="[]"
+
+# Key configs present
+configs_present_json="$( {
+  for f in tsconfig.json next.config.ts next.config.js next.config.mjs \
+           vite.config.ts vite.config.js tailwind.config.ts tailwind.config.js \
+           prisma/schema.prisma drizzle.config.ts svelte.config.js astro.config.mjs \
+           nuxt.config.ts remix.config.js angular.json pyproject.toml Cargo.toml \
+           go.mod Gemfile manage.py vercel.json vercel.ts wrangler.toml \
+           supabase/config.toml docker-compose.yml docker-compose.yaml \
+           .github/workflows src-tauri/tauri.conf.json; do
+    [ -e "$REPO_ROOT/$f" ] && echo "$f"
+  done
+} | sort -u | arr_lines 30)"
+[ -z "$configs_present_json" ] && configs_present_json="[]"
+
+# Description: package.json.description ?: first README paragraph
+description=""
+[ -f "$REPO_ROOT/package.json" ] && description="$(jq -r '.description // empty' "$REPO_ROOT/package.json" 2>/dev/null)"
+if [ -z "$description" ]; then
+  for f in README.md README.MD Readme.md readme.md README; do
+    if [ -f "$REPO_ROOT/$f" ]; then
+      description="$(awk '
+          /^#/ {next}
+          NF==0 { if (have) exit; next }
+          { have=1; printf "%s ", $0 }
+        ' "$REPO_ROOT/$f" 2>/dev/null | head -c 400 | sed 's/[[:space:]]*$//')"
+      break
+    fi
+  done
+fi
+
+codebase_json="$(jq -n \
+  --argjson tree "$code_tree_json" \
+  --argjson top_modules "$top_modules_json" \
+  --argjson frameworks "$frameworks_json" \
+  --arg ep_main "$ep_main" \
+  --argjson ep_scripts "$ep_scripts_json" \
+  --argjson ep_bins "$ep_bins_json" \
+  --argjson tauri "$tauri_json" \
+  --argjson py_scripts "$py_scripts_json" \
+  --argjson routes "$routes_json" \
+  --argjson configs "$configs_present_json" \
+  --arg description "$description" \
+  '{
+    description: (if $description=="" then null else $description end),
+    frameworks: $frameworks,
+    tree: $tree,
+    top_modules: $top_modules,
+    entry_points: {
+      package_main: (if $ep_main=="" then null else $ep_main end),
+      package_scripts: $ep_scripts,
+      package_bins: $ep_bins,
+      tauri: $tauri,
+      python_scripts: $py_scripts
+    },
+    routes: $routes,
+    configs_present: $configs
+  }')"
+printf '%s' "$codebase_json" | jq -e . >/dev/null 2>&1 || codebase_json='{}'
+
 # ---- runtime (dev servers / ports) ----------------------------------------
 # Use lsof -F (field-tagged) output — robust to command names containing spaces,
 # unlike positional column parsing. One `p<pid>`/`c<cmd>` per process, then an
@@ -273,6 +421,41 @@ if [ -f "$GO/graph.json" ]; then
   [ "$head_ct" -gt "$g_mtime" ] && kg_stale=true   # code committed after graph was built
 fi
 
+# ---- auto-graphify: rebuild stale (or first-time) graph in full mode -------
+# macOS has no `timeout` — run in background, poll PID with sleep. Cap controlled
+# by SGNK_GRAPHIFY_TIMEOUT (default 30s stale-refresh, 60s first-build).
+# Skip entirely if SGNK_NO_GRAPHIFY=1, mode=quick, or no graphify CLI.
+if [ "${SGNK_NO_GRAPHIFY:-0}" != "1" ] && [ "$MODE" != "quick" ] && [ "$kg_cli" = "true" ]; then
+  graphify_should_run=false; graphify_timeout=30
+  if [ "$kg_present" = "true" ] && [ "$kg_stale" = "true" ]; then
+    graphify_should_run=true; graphify_timeout="${SGNK_GRAPHIFY_TIMEOUT:-30}"
+  elif [ "$kg_present" = "false" ]; then
+    graphify_should_run=true; graphify_timeout="${SGNK_GRAPHIFY_TIMEOUT:-60}"
+  fi
+  if [ "$graphify_should_run" = "true" ]; then
+    ( cd "$REPO_ROOT" && graphify update . >/dev/null 2>&1 ) &
+    gpid=$!
+    waited=0
+    while kill -0 "$gpid" 2>/dev/null && [ "$waited" -lt "$graphify_timeout" ]; do
+      sleep 1; waited=$((waited+1))
+    done
+    if kill -0 "$gpid" 2>/dev/null; then
+      kill -9 "$gpid" 2>/dev/null || true
+      # leave kg_stale=true so the resuming agent knows the graph wasn't refreshed
+    else
+      # Rebuilt; re-detect outputs
+      if [ -f "$GO/graph.json" ]; then
+        kg_present=true; kg_graph="graphify-out/graph.json"; kg_stale=false
+        [ -f "$GO/GRAPH_REPORT.md" ] && kg_report="graphify-out/GRAPH_REPORT.md"
+        [ -f "$GO/graph.html" ] && kg_html="graphify-out/graph.html"
+        g_mtime="$(stat -f %m "$GO/graph.json" 2>/dev/null || echo 0)"
+        kg_built="$(date -u -r "${g_mtime:-0}" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo "")"
+      fi
+    fi
+    unset gpid waited graphify_should_run graphify_timeout
+  fi
+fi
+
 # ---- remote (skippable, time-boxed) ---------------------------------------
 remote_json='{"enabled":false}'
 if [ "$MODE" = "full" ] && [ "${SGNK_NO_REMOTE:-0}" != "1" ] && command -v gh >/dev/null 2>&1; then
@@ -281,8 +464,15 @@ if [ "$MODE" = "full" ] && [ "${SGNK_NO_REMOTE:-0}" != "1" ] && command -v gh >/
       --json number,title,headRefName,isDraft,mergeable,reviewDecision 2>/dev/null || echo '[]')"
     printf '%s' "$prs" | jq -e . >/dev/null 2>&1 || prs='[]'   # never feed argjson garbage
     ci_status="$(run_to "$GH_TIMEOUT" gh pr checks --json state -q '[.[].state] | join(",")' 2>/dev/null || echo "")"
+    issues="$(run_to "$GH_TIMEOUT" gh issue list --state open --limit 10 \
+      --json number,title,labels 2>/dev/null || echo '[]')"
+    printf '%s' "$issues" | jq -e . >/dev/null 2>&1 || issues='[]'
+    runs="$(run_to "$GH_TIMEOUT" gh run list --limit 5 \
+      --json status,conclusion,workflowName,displayTitle,createdAt 2>/dev/null || echo '[]')"
+    printf '%s' "$runs" | jq -e . >/dev/null 2>&1 || runs='[]'
     remote_json="$(jq -n --argjson prs "$prs" --arg ci "$ci_status" \
-      '{enabled:true, open_prs:$prs, ci:{status:$ci}}')"
+      --argjson issues "$issues" --argjson runs "$runs" \
+      '{enabled:true, open_prs:$prs, ci:{status:$ci}, open_issues:$issues, recent_runs:$runs}')"
     printf '%s' "$remote_json" | jq -e . >/dev/null 2>&1 || remote_json='{"enabled":false}'
   fi
 fi
@@ -321,6 +511,7 @@ jq -n \
   --arg transcript_path "$transcript_path" --argjson transcript_lines "$transcript_lines" \
   --arg transcript_session "$transcript_session" \
   --argjson remote "$remote_json" \
+  --argjson codebase "$codebase_json" \
   '{
     schema_version: 3,
     id: $id, utc: $utc, mode: $mode,
@@ -344,6 +535,7 @@ jq -n \
       lockfile:$lockfile, lockfile_sha256:$lockfile_sha,
       devcontainer:$devcontainer, dockerfile:$dockerfile
     },
+    codebase: $codebase,
     runtime: {services:$services, ports_in_use:$ports, background_jobs:[], containers:$containers, required_env:$required_env},
     dependencies: {dep_drift:false, pending_migrations:$migration_files, feature_flags_changed:[]},
     contracts: {api_schema_files_in_flight:$api_schema, migration_files:$migration_files},

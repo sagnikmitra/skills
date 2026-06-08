@@ -86,6 +86,50 @@ recent_diffs_json="$(g log -5 --format='%h%x09%s' \
               map({sha:.[0], subject:.[1], stat:.[2]})')"
 [ -z "$recent_diffs_json" ] && recent_diffs_json="[]"
 
+# Feature clusters — group last 30 commits by dominant top-2-dir prefix. Tells
+# the resuming agent "the active feature thrust right now is in <dir>". Mechanical.
+clusters_tmp="$(mktemp -t sgnk-clust.XXXXXX)"
+g log -30 --format='__C__%h%x09%s' --name-only 2>/dev/null \
+  | awk '
+      BEGIN { sha=""; subj="" }
+      /^__C__/ {
+        if (sha != "") for (d in dc) print sha "\t" subj "\t" d "\t" dc[d]
+        split(substr($0,6), a, "\t"); sha=a[1]; subj=a[2]
+        delete dc; next
+      }
+      NF==0 { next }
+      {
+        n=split($0, p, "/")
+        if (n>=2) key=p[1]"/"p[2]; else key=p[1]
+        dc[key]++
+      }
+      END { if (sha != "") for (d in dc) print sha "\t" subj "\t" d "\t" dc[d] }
+    ' > "$clusters_tmp"
+feature_clusters_json="$(awk -F'\t' '
+    { count[$3]++; if (length(subjs[$3]) < 220) subjs[$3] = subjs[$3] (length(subjs[$3])?"|":"") $2 }
+    END { for (k in count) print k "\t" count[k] "\t" subjs[k] }
+  ' "$clusters_tmp" \
+  | sort -t$'\t' -k2 -rn | head -5 \
+  | jq -R -s 'split("\n") | map(select(length>0)) | map(split("\t")) |
+              map({dir:.[0], commit_count:(.[1]|tonumber? // 0),
+                   recent_subjects: (.[2] // "" | split("|") | .[0:3])})')"
+rm -f "$clusters_tmp"
+[ -z "$feature_clusters_json" ] && feature_clusters_json="[]"
+
+# Branch diffstats vs base — for each non-base local branch (capped)
+base_branch_for_diff="$(g symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|.*/||')"
+base_branch_for_diff="${base_branch_for_diff:-main}"
+branch_diffstats_json="$(g for-each-ref --format='%(refname:short)' refs/heads/ 2>/dev/null \
+  | grep -v "^${base_branch_for_diff}$" | head -8 \
+  | while read -r br; do
+      [ -z "$br" ] && continue
+      stat="$(g diff --shortstat "${base_branch_for_diff}...${br}" 2>/dev/null | sed 's/^ *//')"
+      [ -n "$stat" ] && printf '%s\t%s\n' "$br" "$stat"
+    done \
+  | jq -R -s 'split("\n") | map(select(length>0)) | map(split("\t")) |
+              map({branch:.[0], vs_base:.[1]})')"
+[ -z "$branch_diffstats_json" ] && branch_diffstats_json="[]"
+
 # Assemble
 jq -n \
   --argjson commits "$commits_json" \
@@ -98,8 +142,11 @@ jq -n \
   --arg pyproject "$pyproject_summary" \
   --argjson todos "$todos_json" \
   --argjson recent_diffs "$recent_diffs_json" \
+  --argjson feature_clusters "$feature_clusters_json" \
+  --argjson branch_diffstats "$branch_diffstats_json" \
+  --arg base_branch_for_diff "$base_branch_for_diff" \
   '{
-    schema:"sgnk-derive/1",
+    schema:"sgnk-derive/2",
     commits: $commits,
     commit_topics: $topics,
     file_churn: $churn,
@@ -111,5 +158,7 @@ jq -n \
       pyproject_head: (if $pyproject=="" then null else $pyproject end)
     },
     todos_sample: $todos,
-    recent_diffs: $recent_diffs
+    recent_diffs: $recent_diffs,
+    feature_clusters: $feature_clusters,
+    branch_diffstats: {base: $base_branch_for_diff, entries: $branch_diffstats}
   }'

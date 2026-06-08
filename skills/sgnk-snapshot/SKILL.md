@@ -92,21 +92,17 @@ mechanical-mode cards (short KEY only; mode tag `auto`) and tell the user.
      Mark these cards `kind: derived` in their yaml header so the next agent
      knows they were script-summarized, not live narrative.
 
-3. **Knowledge graph (graphify)** — `full`/`all` mode only; skip in `quick`. Read
-   `manifest.knowledge_graph`. If `cli_available` is true, make the graph current so
-   the handoff carries a queryable map of the codebase ("run graphify if not already
-   done"):
-   - `present:false` (never built) → `graphify update .` — build it.
-   - `present:true, stale:true` → `graphify update .` — incremental refresh
-     (cheap; re-extract code files, no LLM needed). Add `--force` only if the
-     refactor deleted code and `update` would otherwise refuse to shrink.
-   - `present:true, stale:false` → already current; do nothing.
+3. **Knowledge graph (graphify)** — *auto-built by the collector* in `full`/`all`
+   mode when `kg_cli && (kg_stale || !kg_present)`. macOS-safe (background + poll,
+   default 30s refresh / 60s first-build cap; override via `SGNK_GRAPHIFY_TIMEOUT`;
+   skip via `SGNK_NO_GRAPHIFY=1`). After collect runs, `manifest.knowledge_graph`
+   reflects the fresh state — you don't need to invoke `graphify` yourself. Just
+   reference the outputs in the KEY card.
 
-   Note: `graphify` has no bare `graphify .` form. The CLI verbs are `install`,
-   `update <path>`, `explain "X"`, `path "A" "B"`, `watch <path>`, etc.
-   See `graphify --help`.
    `graphify-out/` is large and gitignored — it stays local (the resuming machine
-   rebuilds it if absent). Always reference it in the KEY card (below).
+   rebuilds it if absent). CLI verbs: `install | update <path> | explain "X" |
+   path "A" "B" | watch <path>` — `graphify --help` for the full list. **No bare
+   `graphify .` form.**
 
 4. **Write the cards** into `$OUT/` — modelled on Claude Code's own auto-compaction
    format (proven to make resumption coherent). KEY ≤ 1 page; cards may be longer
@@ -171,6 +167,48 @@ mechanical-mode cards (short KEY only; mode tag `auto`) and tell the user.
    - **`03-runtime.md`** *(full only, if `manifest.runtime.services` is non-empty)*
      — exact steps to rebuild the running environment: servers, ports, db,
      migrations, seed, feature flags.
+
+   - **`04-codebase.md`** *(always written, mechanical — from `manifest.codebase`)*
+     — **the codebase you're inheriting**. This card closes the
+     "never read src/" gap so a resuming agent doesn't have to traverse the tree
+     from scratch. Sections, in order:
+     1. **What this app does** — one paragraph, from `manifest.codebase.description`.
+     2. **Frameworks & stack** — `manifest.codebase.frameworks` + `toolchain.languages` +
+        `toolchain.package_manager` + `toolchain.runtime_versions`.
+     3. **Top modules** — bulleted list of `codebase.top_modules` (path → file count).
+     4. **Tree (2 levels)** — fenced block of `codebase.tree`.
+     5. **Entry points** — `package_scripts` (name → cmd), `package_bins`, `tauri`
+        (bundle id + product name), `python_scripts`.
+     6. **Routes / public surface** — `codebase.routes` if any, else "no route files
+        detected".
+     7. **Key configs** — `codebase.configs_present` as a comma-list.
+     8. **Required env (names only)** — `manifest.runtime.required_env`.
+     Write this card mechanically from the manifest — do not add narrative beyond
+     what the fields provide. Yaml header `kind: codebase-derived`.
+
+   - **`05-features-and-issues.md`** *(full/all only — from `derived.json` +
+     `manifest.remote`)* — **what's in flight + what hurts**. Sections:
+     1. **Current feature thrust** — bulleted `derived.feature_clusters` (top 5
+        dirs by commit count over last 30 commits; per-cluster: recent 3 subjects).
+     2. **Branches in flight** — `derived.branch_diffstats.entries` (branch → diff
+        vs `base`).
+     3. **Recent CI runs** — `manifest.remote.recent_runs` (latest 5: workflow,
+        status, conclusion).
+     4. **Open PRs** — `manifest.remote.open_prs`.
+     5. **Open issues** — `manifest.remote.open_issues`.
+     6. **TODO/FIXME sample** — `derived.todos_sample` grouped by top-level dir.
+     7. **Last-commit diff highlights** — `derived.recent_diffs`.
+     Yaml header `kind: features-issues-derived`.
+
+   **Thin-transcript routing.** When `manifest.refs.transcript_lines < 50` (multi-
+   repo, auto, EOD, or a brand-new session), there isn't enough live signal to
+   write a credible `02-tasks.md`. In that case:
+   - Mark `02-tasks.md` with yaml header `kind: derived-stub`.
+   - Fill it ONLY with: §13 Branches & peers, §11 Things to remove (from
+     `derived.todos_sample`), §9 DEAD-ENDS (empty placeholder). Skip §1–§8 and §10
+     entirely — do not fabricate intent the user never expressed.
+   - Recall reads the stub flag and leads from 04+05 instead. So thin captures
+     still hand off the codebase cleanly.
 
 5. **Publish atomically** (updates LATEST-KEY/LATEST, journal, registry; prunes to 20):
    ```bash

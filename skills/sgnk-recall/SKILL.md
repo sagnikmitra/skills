@@ -61,18 +61,36 @@ judgment: what changed since, what's safe to resume, what to avoid.
      still-pending, `runtime` (which recorded ports are up/down), `remote` PRs.
    - `journal` — recent snapshots across all chats/tools with provenance.
 
-2. **Read the narrative** the loader doesn't carry, in **resumption-signal order**:
-   - **`02-tasks.md` § All User Messages first** — these are verbatim user prompts
-     and the densest source of intent. The arriving agent should read these *before*
-     any decisions card, exactly the way Claude Code's own auto-compaction surfaces
-     them. Then read the rest of 02 (Files & Changes, Errors & Fixes, Problem
-     Solving, Current Work, Pending Tasks, DEAD-ENDS).
+2. **Read the narrative** the loader doesn't carry, in **resumption-signal order**.
+   First check the `kind:` yaml header on `02-tasks.md` to pick the route:
+
+   **Route A — live session (`kind` absent or `live`):**
+   - **`02-tasks.md` § All User Messages first** — verbatim user prompts, the
+     densest source of intent. Read these *before* any decisions card, exactly
+     the way Claude Code's own auto-compaction surfaces them. Then the rest of 02
+     (Files & Changes, Errors & Fixes, Problem Solving, Current Work, Pending
+     Tasks, DEAD-ENDS).
    - Then `00-KEY.md` (change_intent, REPLAY, OPEN, knowledge-graph + transcript
      footer).
-   - `01-context.md` / `03-runtime.md` only as needed.
-   - **Ground-truth fallback:** `manifest.refs.transcript_path` is the full Claude
-     Code session jsonl (`~/.claude/projects/<sanitized-cwd>/<uuid>.jsonl`). If
-     anything in the cards is ambiguous, grep it directly — `jq -r 'select(.type=="user") | .message.content' <path>` extracts every user message verbatim. Treat the jsonl as authoritative; the cards are the curated summary.
+   - Then `04-codebase.md` + `05-features-and-issues.md` for the structural
+     picture (always present in snapshots produced by collector v3+).
+   - `01-context.md` / `03-runtime.md` as needed.
+
+   **Route B — thin session (`kind: derived-stub` or `kind: derived`):**
+   - Lead with `04-codebase.md` — this *is* the handoff when no live narrative
+     exists. Surface what-it-does, frameworks, top modules, entry points, routes,
+     configs.
+   - Then `05-features-and-issues.md` — feature thrust, branches in flight, CI,
+     open PRs/issues, TODOs.
+   - Then `00-KEY.md` for any narrative the model still wrote (project arc,
+     suggested next action).
+   - **Do NOT claim "no user prompts" or "no decisions captured."** A thin-
+     transcript snapshot is not a defect; lead with the codebase cards instead.
+
+   **Ground-truth fallback (both routes):** `manifest.refs.transcript_path` is
+   the full Claude Code session jsonl
+   (`~/.claude/projects/<sanitized-cwd>/<uuid>.jsonl`). If anything in the cards
+   is ambiguous, grep it directly — `jq -r 'select(.type=="user") | .message.content' <path>` extracts every user message verbatim. Treat the jsonl as authoritative; the cards are the curated summary.
 
 3. **Reconcile and report EXACT drift — loudly when it's high:**
    - commits landed since the snapshot (list them),
@@ -96,21 +114,40 @@ judgment: what changed since, what's safe to resume, what to avoid.
    - If NOT present but `cli_available` is true, note it builds automatically on the
      next `/sgnk-snapshot` (or `graphify .` now).
 
-6. **Brief the user**, then stop. The brief, in this order:
-   - **Verbatim user prompts** from 02 (the most recent 3–5) — let the user see
+6. **Brief the user**, then stop. The brief structure depends on which route
+   the narrative took (step 2). Skip sections that are empty rather than printing
+   "none" stubs.
+
+   **Route A (live) — order:**
+   - **Verbatim user prompts** from 02 §2 (most recent 3–5) — let the user see
      their own words back so they confirm intent.
    - Where we were + change_intent.
+   - **Codebase you're inheriting** (from `04-codebase.md`) — one line each:
+     what-it-does, frameworks/stack, top 3 modules, primary entry point. Keep it
+     to ~5 lines; the full card is one file away.
    - The plan with current step + **THE next action** + REPLAY + OPEN anchors.
    - **Blockers** (02 §10) — what's stuck.
-   - **Pending tasks** + **Things to remove** + **Good-to-have** (02 §7/11/12) —
-     so the resuming agent sees the full follow-on backlog at a glance.
+   - **Pending tasks** + **Things to remove** + **Good-to-have** (02 §7/11/12).
+   - **Current feature thrust + open PRs/issues** (from `05-features-and-issues.md`).
    - DEAD-ENDS to avoid; errors already fixed.
    - Live drift (commits since, dirty delta, in-progress op, ports down).
    - **Branches & peers** — list `manifest.vcs.branches_detail` (last commit per
-     branch) and `manifest.peers.authors` so the user can switch context fast
-     and remember who's involved.
+     branch) and `manifest.peers.authors` so the user can switch context fast.
    - Runtime to restore; failing tests/CI.
    - **Knowledge-graph pointer** + **transcript path** for deeper grounding.
+
+   **Route B (thin / derived-stub) — order:**
+   - **Codebase you're inheriting** (from `04-codebase.md`) — lead with this. Give
+     the resuming agent a complete picture before drift / branches: what-it-does,
+     frameworks, top modules, tree summary, entry points, routes, configs,
+     required env. Aim for ~10 lines.
+   - **Current feature thrust + branches in flight** (from `05-features-and-issues.md`).
+   - **Open PRs / issues / CI** (from 05) — what the project is publicly working on.
+   - **TODO/FIXME sample** (from 05) — likely unfinished work.
+   - Snapshot intent (KEY card) if the model wrote one.
+   - Live drift (commits since, dirty delta).
+   - **Knowledge-graph pointer** + **transcript path** for deeper grounding.
+
    Offer 1–2 improvements. **Do NOT mutate anything until the user confirms.** Load
    ONE snapshot + the compact journal by default; expand only if asked (protect
    the context budget).
