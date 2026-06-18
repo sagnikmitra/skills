@@ -751,4 +751,18 @@ jq -n \
 # atomic publish + self-check
 mv -f "$tmp" "$OUT_DIR/manifest.json"
 jq . "$OUT_DIR/manifest.json" >/dev/null 2>&1 || die "produced manifest is not valid JSON"
+
+# Always emit the mechanical narrative cards (01..05). Idempotent: existing cards
+# (e.g. a model-authored richer 02-tasks.md) are not overwritten. The derive step
+# is also called here so 05 has feature-clusters / branch-diffstats / TODOs even
+# when the caller doesn't explicitly invoke sgnk-derive.sh.
+DERIVE_SH="$(dirname "$0")/sgnk-derive.sh"
+WRITE_CARDS_SH="$(dirname "$0")/sgnk-write-cards.sh"
+if [ -f "$DERIVE_SH" ] && [ ! -f "$OUT_DIR/derived.json" ]; then
+  bash "$DERIVE_SH" "$REPO_ROOT" "$OUT_DIR/manifest.json" > "$OUT_DIR/derived.json.tmp" 2>/dev/null \
+    && mv -f "$OUT_DIR/derived.json.tmp" "$OUT_DIR/derived.json" \
+    || rm -f "$OUT_DIR/derived.json.tmp"
+fi
+[ -f "$WRITE_CARDS_SH" ] && bash "$WRITE_CARDS_SH" "$OUT_DIR" "$REPO_ROOT" >/dev/null 2>&1 || true
+
 echo "$OUT_DIR/manifest.json"

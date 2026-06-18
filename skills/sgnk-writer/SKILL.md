@@ -1,7 +1,6 @@
 ---
 name: sgnk-writer
-description: "Write blog posts, technical explainers, tutorials, reviews, research-page prose, and long-form content in Sagnik Mitra's (sgnk) own voice — earnest, plain, playful-but-subtle, analogy-driven, technically deep, honestly balanced. Use whenever drafting or rewriting any prose that will be published under Sagnik / sgnk.ai (blog, /writing, harness-style pages, READMEs with personality, LinkedIn/Twitter long-form, conference abstracts). Trigger: /sgnk-writer."
-trigger: /sgnk-writer
+description: "Write blog posts, technical explainers, tutorials, reviews, research-page prose, and long-form content in Sagnik Mitra's (sgnk) own voice — earnest, plain, playful-but-subtle, analogy-driven, technically deep, honestly balanced. Use whenever drafting or rewriting any first-person or sgnk-attributed prose that will be published under Sagnik / sgnk.ai (blog, /writing, harness-style pages, READMEs with personality, LinkedIn/Twitter long-form, conference abstracts). Trigger: /sgnk-writer, or natural-language requests like 'write this in my voice', 'make it sound like me', 'rewrite in my voice', 'blog this', 'sound like Sagnik / sgnk'. Stay bounded to first-person/sgnk-attributed prose — do not invoke for generic 'write a blog post' requests with no personal-voice intent."
 ---
 
 # /sgnk-writer
@@ -66,4 +65,4 @@ Sagnik writes like an earnest, slightly-formal enthusiast explaining something h
 - `references/self-check.md` — the mandatory adversarial self-check (the 38/100 lesson encoded as a checklist).
 - `references/sgnk-brand.md` — sgnk.ai brand + design system + the live harness page as the canonical worked example. **For the full token + component spec, use the [[sgnk-design]] skill** — `sgnk-brand.md` here is just the writer-side summary; `sgnk-design` carries the canonical visual system.
 
-The persistent memory `sagnik-writing-voice` mirrors the short version of this profile; this skill is the long, operational form.
+A persistent memory `sagnik-writing-voice` mirrors the short version of this profile where it is loaded (it is project-scoped, so it may not be present in every repo); this skill is the portable, long, operational form and is self-sufficient on its own.

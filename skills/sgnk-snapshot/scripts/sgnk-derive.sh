@@ -11,7 +11,11 @@
 set -uo pipefail
 REPO="${1:-}"
 MAN="${2:-}"
-[ -n "$REPO" ] && [ -d "$REPO/.git" ] || { echo '{}' ; exit 0; }
+# Validate via rev-parse, not `-d $REPO/.git`: in a linked worktree `.git` is a
+# FILE (gitdir pointer), so the `-d` test would wrongly emit an empty {} and
+# strand 05-features-and-issues.md. This mirrors sgnk-collect.sh, which already
+# supports worktrees.
+[ -n "$REPO" ] && git -C "$REPO" rev-parse --is-inside-work-tree >/dev/null 2>&1 || { echo '{}' ; exit 0; }
 command -v jq >/dev/null 2>&1 || { echo '{}' ; exit 0; }
 
 g() { git -C "$REPO" --no-pager "$@" 2>/dev/null; }

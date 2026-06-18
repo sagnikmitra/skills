@@ -21,6 +21,7 @@ sgnk="$cwd/.sgnk"
 
 COLLECT="$HOME/.claude/skills/sgnk-snapshot/scripts/sgnk-collect.sh"
 POINTERS="$HOME/.claude/skills/sgnk-snapshot/scripts/sgnk-pointers.sh"
+WRITE_CARDS="$HOME/.claude/skills/sgnk-snapshot/scripts/sgnk-write-cards.sh"
 [ -f "$COLLECT" ] && [ -f "$POINTERS" ] || exit 0
 
 # A fresh manual snapshot (<10 min)? Don't overwrite it — just note the session end.
@@ -44,6 +45,10 @@ head="$(git -C "$cwd" rev-parse HEAD 2>/dev/null)"
   printf 'Mechanical capture, no narrative: the session ended without a manual /sgnk-snapshot.\n'
   printf 'Resume: open this repo, run /sgnk-recall, and read manifest.json for live state.\n'
 } > "$OUT/00-KEY.md"
+
+# Emit the full narrative-card set so auto-captures aren't mechanical-only.
+# write-cards itself is idempotent and silent on failure — never blocks publish.
+[ -f "$WRITE_CARDS" ] && bash "$WRITE_CARDS" "$OUT" "$cwd" >/dev/null 2>&1 || true
 
 bash "$POINTERS" "$cwd" "$ID" auto "$head" "AUTO safety-net snapshot (reason=$reason)" \
   "${SGNK_TOOL:-claude}" "${SGNK_ACCOUNT:-unknown}" >/dev/null 2>&1 || true

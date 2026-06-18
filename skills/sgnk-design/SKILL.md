@@ -1,7 +1,6 @@
 ---
 name: sgnk-design
 description: "The canonical design system for sgnk.ai and every sub-brand surface — a single electric blue accent (#1a5cff) on white, Google Sans + Google Sans Code typography, square corners by default, hairline borders, one elevation rule, and reading-scaffolding components (drop-cap lead, pull-quotes, walk-through readouts under flowcharts, paper deep-links, active-TOC, progress bar, back-to-top). Use whenever designing, building, polishing, reviewing, or extending any sgnk.ai surface: long-form pages, the writing index, the homepage, masthead, marketing, or any sub-brand inheriting the parent system (sgnk Advox, sgnk HQ, sgnk MD, sgnk CareerOS, sgnk Markex, sgnk Writes). The full token + component spec lives in references/sgnk-design-system.md (symlinked to the canonical doc in sagnikmitra.github.io/sgnk-design-system.md). Composes with sgnk-writer (voice for prose inside the system) and with sgnk-next / sgnk-react / gvc (scaffolds that this skill dresses). Trigger: /sgnk-design."
-trigger: /sgnk-design
 ---
 
 # /sgnk-design
@@ -14,7 +13,7 @@ The design system **for everything sgnk.ai touches**. One brand, one blue, two t
 /sgnk-design                                    # load the full system into context
 /sgnk-design <surface>                          # apply the system to building a new surface
 /sgnk-design audit <file|url>                   # review an existing surface against the system
-/sgnk-design extract <target>                   # extract tokens to Figma / JSON / Tailwind / CSS vars
+/sgnk-design extract <target>                   # extract tokens to Tailwind config or CSS vars (the two the spec operationalizes)
 /sgnk-design extend <component>                 # design a new component that respects the system
 ```
 

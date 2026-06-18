@@ -1,7 +1,7 @@
 ---
 name: sgnk-recall
-argument-hint: "[latest|all|list|<id>] [<repo-name>...]  (default: latest on current dir)"
-description: Deterministically load a SGNK snapshot after switching accounts/tools/agents/platforms — parse manifest.json, compute exact git drift, reconcile live state, restore runtime, present a resume plan. Argument forms — `/sgnk-recall` (current dir), `/sgnk-recall list` (chronological history), `/sgnk-recall hq` (named repo), `/sgnk-recall hq trade` (multi-repo brief), `/sgnk-recall all` (every registered repo), `/sgnk-recall <snapshot-id>` (specific past snapshot). Use when the user says recall, resume, "list snapshots", "what snapshots are there", or names specific repos.
+argument-hint: "[list | all | <snapshot-id>] [<repo-name>...]  (default: latest on current dir)"
+description: Deterministically load a SGNK snapshot after switching accounts/tools/agents/platforms — parse manifest.json, compute exact git drift, reconcile live state, restore runtime, present a resume plan. Argument forms — `/sgnk-recall` (current dir), `/sgnk-recall list` (chronological history), `/sgnk-recall hq` (named repo), `/sgnk-recall hq trade` (multi-repo brief), `/sgnk-recall all` (every registered repo), `/sgnk-recall <snapshot-id>` (specific past snapshot). Use when the user says recall, resume, "starting fresh", "pick up where I left off", "list snapshots", "what snapshots are there", or names specific repos to resume.
 allowed-tools: Bash(git:*), Bash(bash:*), Bash(jq:*), Bash(cat:*), Bash(ls:*), Bash(lsof:*), Bash(ps:*), Bash(gh:*), Bash(timeout:*), Bash(find:*), Read, Glob, Grep
 ---
 
@@ -16,16 +16,22 @@ judgment: what changed since, what's safe to resume, what to avoid.
 1. **Parse args** (`$ARGUMENTS`) — same grammar as `/sgnk-snapshot`. Unordered mix
    of an optional **mode** + zero-or-more **targets**.
 
-   **Mode** (first matching token wins, default `latest`):
-   - `latest` — load the newest snapshot for the target (default).
-   - `list` / `history` — emit the chronological snapshot timeline (latest →
-     oldest), latest marked, kind-tagged (`manual` / `auto` / `eod` / `milestone`).
-     Triggers: user says "list snapshots", "history", "what snapshots do we have",
-     "go back two", "before the refactor". Run `list` FIRST in these cases —
-     do not silently load LATEST.
-   - `all` — every registered repo in `~/.sgnk/GLOBAL-REGISTRY.md`.
-   - A bare **snapshot id** like `20260608T001450Z_sgnk-compaction-format_3728` —
-     load that specific past snapshot.
+   **Mode** (first matching token wins, default `latest`). Two are *loader-parsed*
+   (passed through as the loader's second arg) and two are *model-side* (you expand
+   them yourself before calling the loader):
+   - `latest` *(model-side, default)* — load the newest snapshot for the target.
+     This is the implicit default: call the loader with **no** id. (The loader also
+     tolerates a literal `latest`/`all` token and treats it as the default, so an
+     accidental pass-through won't error.)
+   - `list` / `history` *(loader-parsed)* — emit the chronological snapshot timeline
+     (latest → oldest), latest marked, kind-tagged (`manual` / `auto` / `eod` /
+     `milestone`). Triggers: user says "list snapshots", "history", "what snapshots
+     do we have", "go back two", "before the refactor". Run `list` FIRST in these
+     cases — do not silently load LATEST.
+   - `all` *(model-side)* — expand to every registered repo in
+     `~/.sgnk/GLOBAL-REGISTRY.md`, then run the loader once per repo (default id each).
+   - A bare **snapshot id** like `20260608T001450Z_sgnk-compaction-format_3728`
+     *(loader-parsed)* — load that specific past snapshot.
 
    **Targets** (any remaining tokens):
    - *(none)* → current `git rev-parse --show-toplevel`.
@@ -44,7 +50,7 @@ judgment: what changed since, what's safe to resume, what to avoid.
    - `/sgnk-recall all`          → brief on every registered repo
    - `/sgnk-recall 20260608T001450Z_sgnk-compaction-format_3728` → that snapshot
 
-2. **Load + drift** (one deterministic call per target, JSON out):
+2. **Load + drift + auto-heal** (one deterministic call per target, JSON out):
    ```bash
    bash ${CLAUDE_SKILL_DIR}/scripts/sgnk-load.sh "<resolved-repo-path>" [mode|id]
    ```
@@ -61,28 +67,40 @@ judgment: what changed since, what's safe to resume, what to avoid.
      still-pending, `runtime` (which recorded ports are up/down), `remote` PRs.
    - `journal` — recent snapshots across all chats/tools with provenance.
 
-2. **Read the narrative** the loader doesn't carry, in **resumption-signal order**.
-   First check the `kind:` yaml header on `02-tasks.md` to pick the route:
+   **Auto-heal:** the loader detects "thin" snapshots (missing `04-codebase.md` /
+   `05-features-and-issues.md`, OR a historical manifest with an empty
+   `codebase.tree`) and silently runs `sgnk-collect.sh` + `sgnk-write-cards.sh`
+   against the current repo state. The fresh manifest is saved as
+   `manifest-current.json` (alongside the untouched historical `manifest.json`)
+   and the missing cards are written. So even old `milestone-initial-archive`
+   bootstraps surface full codebase + features context on first recall.
 
-   **Route A — live session (`kind` absent or `live`):**
-   - **`02-tasks.md` § All User Messages first** — verbatim user prompts, the
-     densest source of intent. Read these *before* any decisions card, exactly
-     the way Claude Code's own auto-compaction surfaces them. Then the rest of 02
-     (Files & Changes, Errors & Fixes, Problem Solving, Current Work, Pending
-     Tasks, DEAD-ENDS).
+3. **Read the narrative.** All five cards (01–05) are always present after the
+   loader returns — either written at snapshot time or by auto-heal just now.
+   Check the `kind:` yaml header on `02-tasks.md` to pick the route:
+
+   **Route A — live session (`kind: live-derived` or `kind: live`):**
+   - **`02-tasks.md` §1 Verbatim user prompts first** — the densest source of
+     intent, extracted directly from the Claude Code transcript jsonl. Read
+     these *before* any decisions card, exactly the way Claude Code's own
+     auto-compaction surfaces them. Then §2–§6 (Recent work, Branches & peers,
+     TODOs, In-progress git op, Dirty paths). If the snapshot model also wrote
+     additional sections (Errors & Fixes, Problem Solving, Pending Tasks,
+     Blockers), read those next — they're enrichment above the mechanical floor.
    - Then `00-KEY.md` (change_intent, REPLAY, OPEN, knowledge-graph + transcript
      footer).
    - Then `04-codebase.md` + `05-features-and-issues.md` for the structural
-     picture (always present in snapshots produced by collector v3+).
+     picture.
    - `01-context.md` / `03-runtime.md` as needed.
 
-   **Route B — thin session (`kind: derived-stub` or `kind: derived`):**
+   **Route B — thin session (`kind: derived-stub`):**
    - Lead with `04-codebase.md` — this *is* the handoff when no live narrative
      exists. Surface what-it-does, frameworks, top modules, entry points, routes,
      configs.
    - Then `05-features-and-issues.md` — feature thrust, branches in flight, CI,
      open PRs/issues, TODOs.
-   - Then `00-KEY.md` for any narrative the model still wrote (project arc,
+   - Then `02-tasks.md` §2–§6 (recent commits, branches & peers, TODOs).
+   - Then `00-KEY.md` for any narrative the model wrote (project arc,
      suggested next action).
    - **Do NOT claim "no user prompts" or "no decisions captured."** A thin-
      transcript snapshot is not a defect; lead with the codebase cards instead.
@@ -92,7 +110,7 @@ judgment: what changed since, what's safe to resume, what to avoid.
    (`~/.claude/projects/<sanitized-cwd>/<uuid>.jsonl`). If anything in the cards
    is ambiguous, grep it directly — `jq -r 'select(.type=="user") | .message.content' <path>` extracts every user message verbatim. Treat the jsonl as authoritative; the cards are the curated summary.
 
-3. **Reconcile and report EXACT drift — loudly when it's high:**
+4. **Reconcile and report EXACT drift — loudly when it's high:**
    - commits landed since the snapshot (list them),
    - branch / dirty deltas,
    - whether the recorded rebase/merge/cherry-pick is **still pending**,
@@ -101,11 +119,11 @@ judgment: what changed since, what's safe to resume, what to avoid.
    - If `new_commits` says the recorded head isn't in history (rebased / different
      clone), say so plainly — the REPLAY checkout may need adjusting.
 
-4. **Multiple concurrent snapshots** (other tools): the `journal` lists each with
+5. **Multiple concurrent snapshots** (other tools): the `journal` lists each with
    provenance ("claude/sagnik 2h ago", "codex/… 20m ago"). Surface them, reconcile,
    and flag conflicts (e.g. two tools on different branches).
 
-5. **Knowledge graph (graphify)** — if `manifest.knowledge_graph.present` (or
+6. **Knowledge graph (graphify)** — if `manifest.knowledge_graph.present` (or
    `graphify-out/graph.json` exists on disk), REFER the user to it so they can explore
    the codebase semantically instead of re-reading files:
    - `graphify query "<question>"` (broad BFS context), `graphify path "A" "B"`,
@@ -114,8 +132,8 @@ judgment: what changed since, what's safe to resume, what to avoid.
    - If NOT present but `cli_available` is true, note it builds automatically on the
      next `/sgnk-snapshot` (or `graphify .` now).
 
-6. **Brief the user**, then stop. The brief structure depends on which route
-   the narrative took (step 2). Skip sections that are empty rather than printing
+7. **Brief the user**, then stop. The brief structure depends on which route
+   the narrative took (step 3). Skip sections that are empty rather than printing
    "none" stubs.
 
    **Route A (live) — order:**

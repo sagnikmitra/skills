@@ -1,32 +1,44 @@
 ---
 name: sgnk-snapshot
 argument-hint: "[quick|full|all] [<repo-name>...]  (default: full on current dir)"
-description: Capture a schema-versioned, machine-readable v3 JSON snapshot of one or more production codebases. Argument forms — `/sgnk-snapshot` (current dir), `/sgnk-snapshot quick`, `/sgnk-snapshot hq` (named repo), `/sgnk-snapshot hq trade inw-api` (multi-repo), `/sgnk-snapshot all` (every registered repo). Use when the user says snapshot, sgnk, switching accounts, leaving, "my limit is near", or names specific repos.
+description: Capture a schema-versioned, secret-safe v3 JSON snapshot of one or more production codebases — manifest + resume cards — so handing the work off to another AI account, tool, agent, or platform is seamless. Argument forms — `/sgnk-snapshot` (current dir), `/sgnk-snapshot quick` (fast pre-limit save), `/sgnk-snapshot hq` (named repo), `/sgnk-snapshot hq trade inw-api` (multi-repo), `/sgnk-snapshot all` (every registered repo). Use when the user says snapshot, sgnk, "switching accounts", "I'm leaving", "my limit is near", "save my context", "before I switch tools/models", or names specific repos to capture.
 allowed-tools: Bash(git:*), Bash(bash:*), Bash(jq:*), Bash(find:*), Bash(ls:*), Bash(cat:*), Bash(mv:*), Bash(mkdir:*), Bash(shasum:*), Bash(wc:*), Bash(lsof:*), Bash(ps:*), Bash(docker:*), Bash(gh:*), Bash(timeout:*), Bash(sort:*), Bash(head:*), Bash(tail:*), Bash(date:*), Bash(uname:*), Bash(whoami:*), Bash(hostname:*), Bash(od:*), Read, Write, Glob, Grep
 ---
 
 # sgnk-snapshot — durable working-memory handoff
 
 Capture everything an agent needs to resume this codebase from another account/tool/
-platform. The **script collects mechanical facts**; **you write the judgment** it
-can't. The repo stays on disk — only the *working memory* travels.
+platform. The **scripts produce a complete mechanical floor** (manifest + five
+narrative cards); **you enrich** the cards that need judgment. The repo stays on
+disk — only the *working memory* travels.
 
 ## The split (do not blur it)
 
 - `scripts/sgnk-collect.sh` produces a deterministic, secret-safe **`manifest.json`**
-  (git/runtime/toolchain/remote). Trust it. **Never hand-derive git facts.**
-- You author the **narrative cards** (KEY/context/tasks/runtime) — decisions, intent,
-  next action, dead-ends. This is the part that makes a handoff *seamless*, not just
-  possible.
+  (git/runtime/toolchain/codebase/remote) and then automatically invokes
+  `scripts/sgnk-derive.sh` (commits/churn/clusters/TODOs) and
+  `scripts/sgnk-write-cards.sh`, which emit cards `01-context.md`, `02-tasks.md`,
+  `03-runtime.md` (if services exist), `04-codebase.md`, and
+  `05-features-and-issues.md`. Trust them — they are deterministic, bounded, and
+  secret-safe (they never read `.env*`). Hand-deriving git facts or re-emitting
+  these cards from scratch only invites drift and risks leaking values the scripts
+  deliberately exclude, so don't: the cards will already exist on disk by the time
+  the collector returns.
+- Your job is to **author/enrich** the cards that benefit from judgment — primarily
+  `00-KEY.md` (the resume card) and optionally `02-tasks.md` (transcript summary
+  on top of the mechanical user-prompt floor). `sgnk-write-cards.sh` is idempotent:
+  if you write a richer `02-tasks.md` first, the script will skip it.
 
 ## Argument grammar (`$ARGUMENTS`)
 
 The args are an unordered mix of an optional **mode** + zero-or-more **targets**.
 
 **Mode** (first matching token wins, default `full`):
-- `quick` — KEY card + manifest only. Fast pre-limit save.
-- `full`  — all four cards + manifest.
-- `all`   — iterate every repo in `~/.sgnk/GLOBAL-REGISTRY.md` (multi-repo).
+- `quick` — KEY card + manifest only (the script still writes the mechanical
+  01–05 cards; quick just skips the slow remote/graphify phases). Fast pre-limit save.
+- `full`  — all five mechanical cards (01–05) + manifest + remote + graphify.
+- `all`   — iterate every repo in `~/.sgnk/GLOBAL-REGISTRY.md` (multi-repo);
+  each repo gets the full per-repo flow.
 
 **Targets** (any remaining tokens):
 - *(none)* → current `git rev-parse --show-toplevel`.
@@ -44,8 +56,9 @@ Examples:
 - `/sgnk-snapshot all`           → full on every registered repo
 
 When multiple targets are given (or `all`), run the full per-repo flow for each
-in sequence. **The narrative cards (KEY/01/02/03) are still written by you, the
-model** — for multi-repo runs that means you write one set of cards per repo.
+in sequence. **`00-KEY.md` is still written by you, the model** (cards 01–05 are
+written mechanically by the scripts) — for multi-repo runs that means you author
+one KEY card per repo.
 If the user fired off a multi-repo snapshot without prose context, fall back to
 mechanical-mode cards (short KEY only; mode tag `auto`) and tell the user.
 
@@ -63,34 +76,26 @@ mechanical-mode cards (short KEY only; mode tag `auto`) and tell the user.
    Read the manifest back (`jq . "$OUT/manifest.json"`) to ground your narrative in
    real numbers — branch, drift, dirty paths, running services, open PRs.
 
-2b. **Always derive** the mechanical narrative inputs (cheap, runs locally on any
-   repo even when you don't have live-session context for it):
-   ```bash
-   bash ${CLAUDE_SKILL_DIR}/scripts/sgnk-derive.sh "$REPO" > "$OUT/derived.json"
-   ```
-   This gives you: last 30 commits, commit-topic counts (feat/fix/chore/…),
-   file-churn (top-touched files), per-branch last-commit subjects, README head,
-   package metadata, TODO/FIXME samples, recent diffstats. Use it as the
-   **floor** for narrative quality — even multi-repo/auto runs should produce
-   richer-than-mechanical cards by reading derived.json.
+2b. **Mechanical cards 01–05 are already on disk.** `sgnk-collect.sh` invokes
+   `sgnk-derive.sh` (writes `derived.json`) and `sgnk-write-cards.sh` (writes
+   the five cards) automatically. By the time step 2 returns you have:
+   - `01-context.md`  — frameworks, key concepts, README head, convention docs
+   - `02-tasks.md`    — verbatim user prompts (extracted via `jq` from the
+                         Claude Code transcript jsonl) + recent commits +
+                         branches/peers + TODOs
+   - `03-runtime.md`  — services, ports, required env names, restart commands
+                         (emitted only if `manifest.runtime.services` or
+                         `manifest.runtime.required_env` is non-empty)
+   - `04-codebase.md` — what-app-does + frameworks + modules + tree + deps +
+                         entry points + routes + db schema + env groups + ADRs
+   - `05-features-and-issues.md` — feature thrust + branches in flight + CI +
+                                    open PRs/issues + TODOs + recent diffs
 
-   Decision rule for narrative depth:
-   - **Live session context** (you've been working in this repo this session) →
-     write the cards from that context first; use derived.json only to fill gaps
-     (e.g. peers/branches inventory).
-   - **No live context** (multi-repo run, named-target you haven't touched,
-     EOD, milestone) → write cards by **summarizing derived.json**:
-       * 01-context.md: distill the README head + package metadata into Key
-         Technical Concepts; describe the architecture from the file churn.
-       * 02-tasks.md: derive "Primary Request" from the dominant commit topic +
-         README intent; "Files & Code Sections" from churn (top 5–10 files,
-         with their recent commit subjects pulled from `commits[]`); "Recent
-         Work" from commits[0..10]; "Branches & Peers" from
-         `derived.branches` + `manifest.peers`; "Things to remove" from
-         `todos_sample[]`.
-       * 03-runtime.md: only if `manifest.runtime.services` is non-empty.
-     Mark these cards `kind: derived` in their yaml header so the next agent
-     knows they were script-summarized, not live narrative.
+   This is the **mechanical floor** — every snapshot has these, including
+   SessionEnd auto-captures, multi-repo runs, and EOD milestones. The writer
+   is idempotent: if you have rich live context, write your card first and the
+   script will skip it. If your card is missing or thinner than the
+   mechanical scaffold, the writer fills it in.
 
 3. **Knowledge graph (graphify)** — *auto-built by the collector* in `full`/`all`
    mode when `kg_cli && (kg_stale || !kg_present)`. macOS-safe (background + poll,
@@ -100,13 +105,25 @@ mechanical-mode cards (short KEY only; mode tag `auto`) and tell the user.
    reference the outputs in the KEY card.
 
    `graphify-out/` is large and gitignored — it stays local (the resuming machine
-   rebuilds it if absent). CLI verbs: `install | update <path> | explain "X" |
-   path "A" "B" | watch <path>` — `graphify --help` for the full list. **No bare
+   rebuilds it if absent). CLI verbs: `query "<q>" | explain "X" | path "A" "B" |
+   update <path> | watch <path> | install` — `graphify --help` for the full list.
+   `query` is the one the resume cards point the next agent at. **No bare
    `graphify .` form.**
 
-4. **Write the cards** into `$OUT/` — modelled on Claude Code's own auto-compaction
-   format (proven to make resumption coherent). KEY ≤ 1 page; cards may be longer
-   but stay tight — *never* paste large code bodies or full diffs.
+4. **Enrich the cards** (mechanical scaffold is already on disk — your job is to
+   add judgment where it matters). Always author `00-KEY.md` from scratch.
+   For live sessions, optionally rewrite `02-tasks.md` with a richer
+   transcript summary that goes beyond verbatim user prompts (decisions, errors,
+   pending tasks, blockers). Cards modelled on Claude Code's own auto-compaction
+   format — KEY ≤ 1 page; cards may be longer but stay tight — *never* paste
+   large code bodies or full diffs.
+
+   To rewrite a card the writer already populated, just `Write` your richer
+   version — your file overwrites the mechanical scaffold. To force the writer
+   to rebuild from manifest (e.g. after `Write`ing a card you want to discard):
+   ```bash
+   bash ${CLAUDE_SKILL_DIR}/scripts/sgnk-write-cards.sh "$OUT" "$REPO" --force
+   ```
 
    - **`00-KEY.md`** — the **resume card**. Fenced yaml header
      `{id, head_sha, branch, utc}`, then:
@@ -213,17 +230,19 @@ mechanical-mode cards (short KEY only; mode tag `auto`) and tell the user.
      7. **Last-commit diff highlights** — `derived.recent_diffs`.
      Yaml header `kind: features-issues-derived`.
 
-   **Thin-transcript routing.** When `manifest.refs.transcript_lines < 50` (multi-
-   repo, auto, EOD, or a brand-new session), there isn't enough live signal to
-   write a credible `02-tasks.md`. In that case:
-   - Mark `02-tasks.md` with yaml header `kind: derived-stub`.
-   - Fill it ONLY with: §13 Branches & peers, §11 Things to remove (from
-     `derived.todos_sample`), §9 DEAD-ENDS (empty placeholder). Skip §1–§8 and §10
-     entirely — do not fabricate intent the user never expressed.
-   - Recall reads the stub flag and leads from 04+05 instead. So thin captures
-     still hand off the codebase cleanly.
+   **Thin-transcript routing.** The writer auto-marks `02-tasks.md` with
+   `kind: derived-stub` when `manifest.refs.transcript_lines < 50` (multi-repo,
+   auto, EOD, brand-new session). In that mode the card has no §1 verbatim
+   prompts — just §2 recent commits, §3 branches/peers, §4 TODOs, §5 in-progress
+   git op, §6 dirty paths. Recall reads the stub flag and leads from 04+05
+   instead, so thin captures still hand off the codebase cleanly. **Do not
+   fabricate user intent the transcript doesn't contain.** If you have judgment
+   to add (e.g. you've been working in this repo just not via Claude Code), put
+   it in `00-KEY.md`.
 
-5. **Publish atomically** (updates LATEST-KEY/LATEST, journal, registry; prunes to 20):
+5. **Publish atomically** (updates LATEST-KEY/LATEST, journal, registry; prunes
+   working-memory snapshots to the `SGNK_RETAIN` newest — default 100 — while
+   `_eod_`/`_milestone_` IDs are kept forever):
    ```bash
    HEAD="$(git -C "$REPO" rev-parse HEAD)"
    bash ${CLAUDE_SKILL_DIR}/scripts/sgnk-pointers.sh "$REPO" "$ID" <mode> "$HEAD" "<one-line summary>"

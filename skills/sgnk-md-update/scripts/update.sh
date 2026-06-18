@@ -75,8 +75,21 @@ fi
 
 # Refuse on dirty tracked files. Untracked files are fine.
 # Noisy paths (Obsidian local UI state) are tolerated — they wiggle constantly.
+#
+# We ask git directly rather than parsing `git status --porcelain` by hand:
+# the porcelain XY format is awkward to split (paths with spaces, renames as
+# "old -> new") and macOS/BSD awk does not honour RS='\0', so a -z parse is
+# not portable. These three git commands together cover every tracked change —
+# unstaged edits, staged edits, and deletions — emit one clean path per line,
+# and behave identically on BSD and GNU. Deletions matter: a tracked deletion
+# left in the tree could be swallowed by `git pull --rebase`.
 NOISY_RE='^(\.obsidian/workspace\.json|\.obsidian/workspaces\.json)$'
-DIRTY_REAL=$(git status --porcelain | awk '$1 ~ /^[MARC]/ {print $2}' | grep -Ev "$NOISY_RE" || true)
+DIRTY_REAL=$(
+  { git diff --name-only
+    git diff --cached --name-only
+    git ls-files --deleted
+  } | sort -u | grep -Ev "$NOISY_RE" || true
+)
 if [ -n "$DIRTY_REAL" ]; then
   warn "uncommitted changes in tracked files:"
   echo "$DIRTY_REAL" | sed 's/^/  /'
@@ -134,9 +147,21 @@ BUILT_APP=""
 for cand in "${BUILT_APP_CANDIDATES[@]}"; do
   if [ -d "$cand" ]; then BUILT_APP="$cand"; break; fi
 done
-[ -n "$BUILT_APP" ] || die "build finished but $APP_BUNDLE_NAME not found" 2
-APP_SIZE=$(du -sh "$BUILT_APP" 2>/dev/null | awk '{print $1}')
-ok "built $BUILT_APP ($APP_SIZE)"
+if [ -z "$BUILT_APP" ]; then
+  # In --dry-run no build ran, so an artifact may legitimately be absent.
+  # Keep walking through the remaining steps with a placeholder instead of
+  # aborting, otherwise --dry-run can never preview a from-scratch run.
+  if [ "$DRY" = "1" ]; then
+    BUILT_APP="${BUILT_APP_CANDIDATES[0]}"
+    APP_SIZE="?"
+    echo "  [dry] would expect built app at $BUILT_APP"
+  else
+    die "build finished but $APP_BUNDLE_NAME not found" 2
+  fi
+else
+  APP_SIZE=$(du -sh "$BUILT_APP" 2>/dev/null | awk '{print $1}')
+  ok "built $BUILT_APP ($APP_SIZE)"
+fi
 
 BUILT_DMG=""
 for cand in "${BUILT_DMG_CANDIDATES[@]}"; do
